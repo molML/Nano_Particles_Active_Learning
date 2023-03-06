@@ -1,3 +1,16 @@
+"""
+
+Calculations to determine the total experimental error. In our case, experimental errors are additive, so we take
+the quadrature of all compounding errors. Firstly, we have a pipetting error consisting of a systematic error and a
+random error; depending on the pipetting volume. Secondly, the balance used to weight all compounds has an error, and
+finally, the pump has an error. We ignore the carryover volume of the pump, as it only applies to the last pumped stock
+solution.
+
+Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
+
+"""
+
+
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
@@ -38,11 +51,6 @@ def get_stock_solution_error(mass: float, volume: float) -> float:
 
 
 if __name__ == '__main__':
-
-    """In our case, experimental errors are additive. We simply take the quadrature of all compounding errors.
-    Firstly, we have a pipetting error consisting of a systematic error and a random error, depending on the pipetting 
-    volume. Secondly, the balance used to weigh all compounds has an error, and finally, the pump has an error. We 
-    ignore the carryover volume of the pump, as it only applies to the last used stock solution. """
 
     PUMP_ERROR = 1  # We assume 1% pump error (which is the most extreme scenario)
 
