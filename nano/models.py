@@ -26,7 +26,7 @@ class XGBoostEnsemble:
 
         return y_hat, y_hat_mean, y_hat_uncertainty
 
-    def fit(self, x: np.ndarray, y: np.ndarray, **kwargs) -> None:
+    def train(self, x: np.ndarray, y: np.ndarray, **kwargs) -> None:
         for i, m in self.models.items():
             self.models[i] = m.fit(x, y)
 

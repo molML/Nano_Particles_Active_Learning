@@ -28,7 +28,7 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 10, ens
         x_val, y_val = x[folds == i], y[folds == i]
 
         ensmbl = XGBoostEnsemble(ensemble_size=ensemble_size, **kwargs)
-        ensmbl.fit(x_train, y_train)
+        ensmbl.train(x_train, y_train)
 
         y_hat, y_hat_mean, y_hat_uncertainty = ensmbl.predict(x_val)
 
