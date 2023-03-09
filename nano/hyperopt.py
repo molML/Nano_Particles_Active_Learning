@@ -15,19 +15,16 @@ import numpy as np
 from typing import Union
 
 
-def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, log_file: str, n_calls: int = 50, min_init_points: int = 10,
-                             bootstrap: int = 10, n_folds: int = 10, ensemble_size: int = 10, augment: int = False):
-
-    # TODO expand this list
-    hypers = {
+XGBoost_hypers = {
         # Parameters that we are going to tune.
         'max_depth': [2, 20],
-        'min_child_weight': [1, 10],
+        'min_child_weight': [1, 20],
         'gamma': [0.0, 10.0],
-        'learning_rate': [0.01, 1],
-        'n_estimators': [50, 200],
-        'eta': [0.1, 0.5],
-        'subsample': [0.5, 1.0],
+        'learning_rate': [0.001, 1],
+        'n_estimators': [50, 500],
+        'eta': [0.1, 1.0],
+        'max_delta_step': [0, 10],
+        'subsample': [0.1, 1.0],
         'colsample_bytree': [0.1, 1.0],
         'reg_alpha': [0.0, 10.0],
         'reg_lambda': [0.0, 10.0],
@@ -36,10 +33,29 @@ def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, log_file: str, n_call
         'eval_metric': ["rmse"]
     }
 
+RF_hypers = {'bootstrap': [True],
+             'max_depth': [10, 200],
+             'max_features': ['auto', 'sqrt'],
+             'min_samples_leaf': [1, 5],
+             'min_samples_split': [2, 10],
+             'n_estimators': [50, 2000]}
+
+
+def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, log_file: str, n_calls: int = 50, min_init_points: int = 10,
+                             bootstrap: int = 10, n_folds: int = 10, ensemble_size: int = 10, augment: int = False,
+                             model="xgb"):
+
+    assert model in ['rf', 'nn', 'xgb'], f"'model' must be 'rf', 'nn', or 'xgb'"
+
+    if model == 'rf':
+        hypers = RF_hypers
+    if model == 'xgb':
+        hypers = XGBoost_hypers
+
     # Optimize hyperparameters
     opt = BayesianOptimization()
     opt.optimize(x, y, dimensions=hypers, n_calls=n_calls, min_init_points=min_init_points, log_file=log_file,
-                 bootstrap=bootstrap, n_folds=n_folds, ensemble_size=ensemble_size, augment=augment)
+                 bootstrap=bootstrap, n_folds=n_folds, ensemble_size=ensemble_size, augment=augment, model=model)
 
     best_hypers = get_best_hyperparameters(log_file)
 
@@ -56,7 +72,7 @@ class BayesianOptimization:
 
     def optimize(self, x: np.ndarray, y: np.ndarray, dimensions: dict[str, list[Union[float, str, int]]],
                  n_calls: int = 50, min_init_points: int = 10, log_file: str = None, n_folds: int = 10,
-                 bootstrap: int = 10, ensemble_size: int = 10, augment: int = False):
+                 bootstrap: int = 10, ensemble_size: int = 10, augment: int = False, model: str = 'rf'):
 
         # Prevent too mant calls if there aren't as many possible hyperparameter combi's as calls (10 in the min calls)
         dimensions = {k: [v] if type(v) is not list else v for k, v in dimensions.items()}
@@ -80,7 +96,7 @@ class BayesianOptimization:
                     scores = []
                     for i in range(bootstrap):
                         y_hat, _ = k_fold_cross_validation(x, y, n_folds=n_folds, seed=i, ensemble_size=ensemble_size,
-                                                           augment=augment, **hyperparameters)
+                                                           augment=augment, model=model, **hyperparameters)
                         scores.append(calc_rmse(y, y_hat))
 
                     score = sum(scores)/len(scores)
@@ -135,14 +151,6 @@ def convert_types(params: dict) -> dict:
         else:
             new_dict[k] = v
     return new_dict
-
-
-def log_hyperparameters(filename: str, score: float, hypers: dict):
-    if not os.path.exists(filename):
-        with open(filename, 'w') as f:
-            f.write(f"score,hypers\n")
-    with open(filename, 'a') as f:
-        f.write(f"{score},{hypers}\n")
 
 
 def get_best_hyperparameters(filename: str) -> dict:
