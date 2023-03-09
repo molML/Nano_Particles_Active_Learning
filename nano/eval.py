@@ -6,13 +6,13 @@ Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 """
 
 import numpy as np
-from nano.models import XGBoostEnsemble
+from nano.models import XGBoostEnsemble, RFEnsemble
 from nano.utils import augment_data
 import pandas as pd
 
 
 def evaluate_model(x: np.ndarray, y: np.ndarray, id: np.ndarray, filename: str, hyperparameters: dict,
-                   bootstrap: int = 10, n_folds: int = 5, ensemble_size=10, augment=5):
+                   bootstrap: int = 10, n_folds: int = 5, ensemble_size=10, augment=5, model: str = 'xgb'):
     """ Function to evaluate model performance through bootstrapped k-fold cross-validation"""
 
     # estimate model performance over b bootstraps
@@ -21,7 +21,7 @@ def evaluate_model(x: np.ndarray, y: np.ndarray, id: np.ndarray, filename: str, 
         y_hat, y_hat_uncertainty = k_fold_cross_validation(x, y, seed=b,
                                                            n_folds=n_folds,
                                                            ensemble_size=ensemble_size,
-                                                           augment=augment,
+                                                           augment=augment, model=model,
                                                            **hyperparameters)
         y_hats.append(y_hat)
         y_hats_uncertainty.append(y_hat_uncertainty)
@@ -49,7 +49,7 @@ def evaluate_model(x: np.ndarray, y: np.ndarray, id: np.ndarray, filename: str, 
 
 
 def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ensemble_size: int = 10, seed: int = 42,
-                            augment: int = False, **kwargs) -> (np.ndarray, np.ndarray):
+                            augment: int = False, model: str = 'xgb', **kwargs) -> (np.ndarray, np.ndarray):
     assert len(x) == len(y), f"x and y should contain the same number of samples x:{len(x)}, y:{len(y)}"
 
     y_hats, y_hats_uncertainty = np.zeros(y.shape), np.zeros(y.shape)
@@ -65,7 +65,10 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ense
 
         x_val, y_val = x[folds == i], y[folds == i]
 
-        ensmbl = XGBoostEnsemble(ensemble_size=ensemble_size, **kwargs)
+        if model == 'rf':
+            ensmbl = RFEnsemble(ensemble_size=ensemble_size, **kwargs)
+        elif model == 'xgb':
+            ensmbl = XGBoostEnsemble(ensemble_size=ensemble_size, **kwargs)
         ensmbl.train(x_train, y_train)
 
         y_hat, y_hat_mean, y_hat_uncertainty = ensmbl.predict(x_val)
