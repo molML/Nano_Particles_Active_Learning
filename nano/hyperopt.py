@@ -72,7 +72,7 @@ class BayesianOptimization:
 
     def optimize(self, x: np.ndarray, y: np.ndarray, dimensions: dict[str, list[Union[float, str, int]]],
                  n_calls: int = 50, min_init_points: int = 10, log_file: str = None, n_folds: int = 10,
-                 bootstrap: int = 10, ensemble_size: int = 10, augment: int = False, model: str = 'rf'):
+                 bootstrap: int = 10, ensemble_size: int = 10, augment: int = False, model: str = 'xgb'):
 
         # Prevent too mant calls if there aren't as many possible hyperparameter combi's as calls (10 in the min calls)
         dimensions = {k: [v] if type(v) is not list else v for k, v in dimensions.items()}
