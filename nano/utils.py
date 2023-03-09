@@ -73,6 +73,27 @@ def augment_data(x: np.ndarray, y: np.ndarray, n_times: int = 5, shuffle: bool =
     return x_prime, y_prime
 
 
+def screen_predict(screen_x, screen_id, uptake_model, pdi_model, filename: str):
+    # Perform predictions
+    y_hat_uptake, y_hat_mean_uptake, y_hat_uncertainty_uptake = uptake_model.predict(screen_x)
+    y_hat_pdi, y_hat_mean_pdi, y_hat_uncertainty_pdi = pdi_model.predict(screen_x)
+
+    screen_df = pd.DataFrame({'ID': screen_id,
+                              'y_hat_uptake': y_hat_mean_uptake,
+                              'y_uncertainty_uptake': y_hat_uncertainty_uptake,
+                              'y_hat_pdi': y_hat_mean_pdi,
+                              'y_uncertainty_pdi': y_hat_uncertainty_pdi,
+                              'x_PLGA': screen_x[:, 0],
+                              'x_PP-L': screen_x[:, 1],
+                              'x_PP-COOH': screen_x[:, 2],
+                              'x_PP-NH2': screen_x[:, 3],
+                              'x_S/AS': screen_x[:, 4]})
+
+    screen_df.to_csv(filename, index=False)
+
+    return screen_df
+
+
 def numpy_to_dataloader(x: np.ndarray, y: np.ndarray = None, **kwargs) -> DataLoader:
 
     if y is None:
