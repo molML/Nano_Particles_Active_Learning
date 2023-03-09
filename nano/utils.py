@@ -20,47 +20,27 @@ def load_data(cycle: int = 0, seed: int = 42, shuffle: bool = True) -> (np.ndarr
     """ Loads the data from our pre-processed files, with the option to shuffle the samples """
 
     # Load the uptake data
-    uptake_data = pd.read_csv(f'data/cycle_{cycle}/Uptake_data_cycle_{cycle}.csv')
+    data = pd.read_csv(f'data/cycle_{cycle}/Uptake_data_cycle_{cycle}.csv')
     if shuffle:
-        uptake_data = sklearn_shuffle(uptake_data, random_state=seed)
+        data = sklearn_shuffle(data, random_state=seed)
 
-    uptake_id = np.array(uptake_data['ID'])
-    uptake_x = np.array([uptake_data['PLGA'],
-                         uptake_data['PP-L'],
-                         uptake_data['PP-COOH'],
-                         uptake_data['PP-NH2'],
-                         uptake_data['S/AS']]).T
-    uptake_y = np.array(uptake_data['Uptake'])
-
-    # Load the PDI data
-    pdi_data = pd.read_csv(f'data/cycle_{cycle}/PDI_data_cycle_{cycle}.csv')
-    if shuffle:
-        pdi_data = sklearn_shuffle(pdi_data, random_state=seed)
-
-    pdi_id = np.array(pdi_data['ID'])
-    pdi_x = np.array([pdi_data['PLGA'],
-                      pdi_data['PP-L'],
-                      pdi_data['PP-COOH'],
-                      pdi_data['PP-NH2'],
-                      pdi_data['S/AS']]).T
-    pdi_y = np.array(pdi_data['PDI'])
+    id = np.array(data['ID'])
+    x = np.array([data['PLGA'], data['PP-L'], data['PP-COOH'], data['PP-NH2'], data['S/AS']]).T
+    uptake_y = np.array(data['Uptake'])
+    pdi_y = np.array(data['PDI'])
 
     # Load the screen data
-    screen_data = pd.read_csv('data/screen_library.csv')
+    screen = pd.read_csv('data/screen_library.csv')
     if shuffle:
-        screen_data = sklearn_shuffle(screen_data, random_state=seed)
+        screen = sklearn_shuffle(screen, random_state=seed)
 
-    screen_id = np.array(screen_data['ID'])
-    screen_x = np.array([screen_data['PLGA'],
-                         screen_data['PP-L'],
-                         screen_data['PP-COOH'],
-                         screen_data['PP-NH2'],
-                         screen_data['S/AS']]).T
+    screen_id = np.array(screen['ID'])
+    screen_x = np.array([screen['PLGA'], screen['PP-L'], screen['PP-COOH'], screen['PP-NH2'], screen['S/AS']]).T
 
-    return uptake_x, uptake_y, uptake_id, pdi_x, pdi_y, pdi_id, screen_x, screen_id
+    return x, uptake_y, pdi_y, id, screen_x, screen_id
 
 
-def augment_data(x: np.ndarray, y: np.ndarray, n_times: int = 10, shuffle: bool = True, seed: int = 42,
+def augment_data(x: np.ndarray, y: np.ndarray, n_times: int = 5, shuffle: bool = True, seed: int = 42,
                  verbose: bool = False) -> (np.ndarray, np.ndarray):
 
     experimental_error = {'PLGA': 1.2490, 'PP-L': 1.2121, 'PP-COOH': 1.2359,  'PP-NH2': 1.2398,  'S/AS': 0}
