@@ -78,6 +78,9 @@ class BayesianOptimization:
         dimensions = {k: [v] if type(v) is not list else v for k, v in dimensions.items()}
         dimensions = dict_to_search_space(dimensions)
 
+        with open(log_file, 'w') as f:
+            f.write(f"score,hypers\n")
+
         # Objective function for Bayesian optimization
         @use_named_args(dimensions=dimensions)
         def objective(**hyperparameters) -> float:
@@ -101,8 +104,8 @@ class BayesianOptimization:
 
                     score = sum(scores)/len(scores)
 
-                    if log_file is not None:
-                        log_hyperparameters(log_file, score=score, hypers=hyperparameters)
+                    with open(log_file, 'a') as f:
+                        f.write(f"{score},{hyperparameters}\n")
 
                 # If this combination of hyperparameters fails, we use a dummy score that is worse than the best
                 except:
