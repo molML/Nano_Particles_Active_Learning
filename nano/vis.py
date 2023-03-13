@@ -21,6 +21,5 @@ def scatter(y, y_hat, uncertainty=None, labels=None):
     plt.xlabel("True")
     plt.ylabel("Predicted")
     ax.set_aspect(abs(x1-x0)/abs(y1-y0))
-    ax.grid(b=True, which='major', color='k', linestyle='--', alpha=0.25)
 
     plt.show()
