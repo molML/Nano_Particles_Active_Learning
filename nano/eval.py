@@ -8,7 +8,7 @@ Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 import numpy as np
 from torch import Tensor
 from typing import Union
-from nano.models import XGBoostEnsemble, RFEnsemble
+from nano.models import XGBoostEnsemble, RFEnsemble, BayesianNN
 from nano.utils import augment_data
 import pandas as pd
 
@@ -68,12 +68,24 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ense
         x_val, y_val = x[folds == i], y[folds == i]
 
         if model == 'rf':
-            ensmbl = RFEnsemble(ensemble_size=ensemble_size, **kwargs)
+            m = RFEnsemble(ensemble_size=ensemble_size, **kwargs)
         elif model == 'xgb':
-            ensmbl = XGBoostEnsemble(ensemble_size=ensemble_size, **kwargs)
-        ensmbl.train(x_train, y_train)
+            m = XGBoostEnsemble(ensemble_size=ensemble_size, **kwargs)
+        elif model == 'bnn':
+            m = BayesianNN(**kwargs)
+        m.train(x_train, y_train)
 
-        y_hat, y_hat_mean, y_hat_uncertainty = ensmbl.predict(x_val)
+        _, y_hat_mean, y_hat_uncertainty = m.predict(x_val)
+
+        if model == 'bnn':
+            try:
+                del m.model
+            except:
+                pass
+            try:
+                del m
+            except:
+                pass
 
         y_hats[folds == i] = y_hat_mean
         y_hats_uncertainty[folds == i] = y_hat_uncertainty

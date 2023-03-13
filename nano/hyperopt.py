@@ -40,17 +40,24 @@ RF_hypers = {'bootstrap': [True],
              'min_samples_split': [2, 10],
              'n_estimators': [50, 2000]}
 
+BNN_hypers = {'lr': [1e-3, 1e-5],
+              'hidden_size': [16, 32, 64],
+              'epochs': [1000, 5000, 10000, 20000],
+              'n_layers': [1, 5]}
+
 
 def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, log_file: str, n_calls: int = 50, min_init_points: int = 10,
                              bootstrap: int = 10, n_folds: int = 10, ensemble_size: int = 10, augment: int = False,
                              model="xgb"):
 
-    assert model in ['rf', 'nn', 'xgb'], f"'model' must be 'rf', 'nn', or 'xgb'"
+    assert model in ['rf', 'bnn', 'xgb'], f"'model' must be 'rf', 'bnn', or 'xgb'"
 
     if model == 'rf':
         hypers = RF_hypers
     if model == 'xgb':
         hypers = XGBoost_hypers
+    if model == 'bnn':
+        hypers = BNN_hypers
 
     # Optimize hyperparameters
     opt = BayesianOptimization()
