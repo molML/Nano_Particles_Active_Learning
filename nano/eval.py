@@ -6,6 +6,8 @@ Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 """
 
 import numpy as np
+from torch import Tensor
+from typing import Union
 from nano.models import XGBoostEnsemble, RFEnsemble
 from nano.utils import augment_data
 import pandas as pd
@@ -79,9 +81,13 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ense
     return y_hats, y_hats_uncertainty
 
 
-def calc_rmse(y: np.ndarray, y_hat: np.ndarray) -> float:
+def calc_rmse(y: Union[np.ndarray, Tensor], y_hat: Union[np.ndarray, Tensor]) -> float:
     """ Calculates the Root Mean Square Error """
-    assert type(y) is np.ndarray and type(y_hat) is np.ndarray, 'y and y_hat should be Numpy Arrays'
+    if type(y) is Tensor:
+        y = np.array(y)
+    if type(y_hat) is Tensor:
+        y_hat = np.array(y_hat)
+
     assert len(y) == len(y_hat), f"y and y_hat should contain the same number of samples y:{len(y)}, y_hat:{len(y_hat)}"
 
     return np.sqrt(np.mean(np.square(y - y_hat)))
