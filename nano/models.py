@@ -9,14 +9,21 @@ Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 
 """
 
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch import tensor
+from torch.nn import Linear
+import pyro
+import pyro.distributions as dist
+from pyro.nn import PyroModule, PyroSample
+from pyro.infer.autoguide import AutoDiagonalNormal
+from pyro.infer import SVI, Trace_ELBO, Predictive
+from tqdm.auto import trange, tqdm
 from xgboost import XGBRegressor
 from sklearn.ensemble import RandomForestRegressor
 from copy import deepcopy
-import torch
-import torch.nn.functional as F
-from torch import Tensor
-from torch.nn import Linear
-import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -63,186 +70,158 @@ class RFEnsemble:
         return f"Ensemble of {len(self.models)} Random Forest Regressors"
 
 
-class AnchoredNNEnsemble:
-    """ Ensemble of L2 anchored neural networks """
-    def __init__(self, ensemble_size: int = 10, **kwargs) -> None:
-        pass
+class NN(PyroModule):
+    def __init__(self, in_feats=5, n_layers: int = 3, hidden_size: int = 32, activation: str = 'relu',
+                 to_gpu: bool = True):
+        super().__init__()
+        nh0, nh = in_feats, hidden_size
+        self.n_layers = n_layers
+        assert 1 <= n_layers <= 5, f"'n_layers' should be between 1 and 5, not {n_layers}"
+        assert activation in ['relu', 'gelu', 'elu', 'leaky']
 
-    def predict(self, x):
-        pass
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() and to_gpu else "cpu")
 
-    def test(self, x, y):
-        pass
+        self.fc0 = PyroModule[nn.Linear](nh0, nh)
+        self.fc0.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh, nh0]).to_event(2))
+        self.fc0.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh]).to_event(1))
 
-    def fit(self, x):
-        pass
+        if n_layers > 1:
+            self.fc1 = PyroModule[nn.Linear](nh, nh)
+            self.fc1.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh, nh]).to_event(2))
+            self.fc1.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh]).to_event(1))
 
-    def __repr__(self):
-        return ""
+        if n_layers > 2:
+            self.fc2 = PyroModule[nn.Linear](nh, nh)
+            self.fc2.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh, nh]).to_event(2))
+            self.fc2.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh]).to_event(1))
+
+        if n_layers > 3:
+            self.fc3 = PyroModule[nn.Linear](nh, nh)
+            self.fc3.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh, nh]).to_event(2))
+            self.fc3.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh]).to_event(1))
+
+        if n_layers > 4:
+            self.fc4 = PyroModule[nn.Linear](nh, nh)
+            self.fc4.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh, nh]).to_event(2))
+            self.fc4.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh]).to_event(1))
+
+        self.out = PyroModule[nn.Linear](nh, 1)
+        self.out.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([1, nh]).to_event(2))
+        self.out.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([1]).to_event(1))
+
+        if activation == 'relu':
+            self.act = nn.ReLU()
+        if activation == 'elu':
+            self.act = nn.ELU()
+        if activation == 'gelu':
+            self.act = nn.GELU()
+        if activation == 'leaky':
+            self.act = nn.LeakyReLU()
+
+    def forward(self, x, y=None):
+
+        x = self.act(self.fc0(x))
+        if self.n_layers > 1:
+            x = self.act(self.fc1(x))
+        if self.n_layers > 2:
+            x = self.act(self.fc2(x))
+        if self.n_layers > 3:
+            x = self.act(self.fc3(x))
+        if self.n_layers > 4:
+            x = self.act(self.fc4(x))
+        mu = self.out(x).squeeze()
+
+        sigma = pyro.sample("sigma", dist.Uniform(0., tensor(1.0, device=self.device)))
+        with pyro.plate("data", x.shape[0]):
+            obs = pyro.sample("obs", dist.Normal(mu, sigma), obs=y)
+        return mu
 
 
-class AnchoredMLP:
-    def __init__(self, in_feats: int = 5, out_feats: int = 1, hidden_size: int = 64, n_layers: int = 3,
-                 anchored: bool = True, seed: int = 42, l2_lambda: float = 0.001, lr=0.0005):
+class BayesianNN:
+    def __init__(self, in_feats: int = 5, hidden_size: int = 64, n_layers: int = 3, activation: str = 'relu',
+                 seed: int = 42, lr=1e-3, to_gpu: bool = False, epochs: int = 10000):
 
-        self.l2_lambda = l2_lambda
         self.lr = lr
         self.train_losses = []
-        self.val_losses = []
-        self.epochs = 0
+        self.epochs = epochs
+        self.epoch = 0
         self.seed = seed
-        self.anchored = anchored
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() and to_gpu else "cpu")
+        pyro.set_rng_seed(seed)
 
-        self.model = MLP(in_feats=in_feats, out_feats=out_feats, hidden_size=hidden_size, n_layers=n_layers)
-
-        # create the infrastructure needed to train the model
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.loss_fn = torch.nn.MSELoss()
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
-
-        # Save initial weights in the model for the anchored regularization and move them to the gpu
-        if anchored:
-            self.model.anchor_weights = deepcopy({i: j for i, j in self.model.named_parameters()})
-            self.model.anchor_weights = {i: j.to(self.device) for i, j in self.model.anchor_weights.items()}
-
-        # Move the whole model to the gpu
+        # Init model
+        self.model = NN(in_feats=in_feats, hidden_size=hidden_size, activation=activation, n_layers=n_layers,
+                        to_gpu=to_gpu)
         self.model = self.model.to(self.device)
 
-    def train(self, train_loader, val_loader=None, epochs: int = 200, verbose: bool = True):
-        """ Train a model for n epochs
+        # Init Guide model
+        self.guide = AutoDiagonalNormal(self.model)
+        self.guide = self.guide.to(self.device)
+        # Init optimizer
+        adam = pyro.optim.Adam({"lr": lr})
+        # Stochastic Variational Inference
+        self.svi = SVI(self.model, self.guide, adam, loss=Trace_ELBO())
 
-        :param print_every_n: (int) print progress every n epochs
-        :param train_loader: Torch geometric data loader with training data
-        :param val_loader: Torch geometric data loader with validation data (optional)
-        :param epochs: (int) number of epochs to train
-        """
+    def train(self, data_loader, epochs: int = None):
 
-        for epoch in range(epochs):
-            self.model.train(True)
-            loss = self._one_epoch(train_loader)
-            self.train_losses.append(loss)
+        pyro.clear_param_store()
+        bar = trange(self.epochs if epochs is None else epochs)
 
-            val_loss = 0
-            if val_loader is not None:
-                val_pred, val_y = self.test(val_loader)
-                val_loss = self.loss_fn(torch.tensor(val_pred), torch.tensor(val_y))
-            self.val_losses.append(val_loss)
-
-            self.epochs += 1
-
-            if verbose:
-                if val_loader is not None:
-                    print(f"Epoch {self.epochs} | Train Loss {loss} | Val Loss {val_loss}")
-                else:
-                    print(f"Epoch {self.epochs} | Train Loss {loss}")
-
-    def _one_epoch(self, train_loader):
-        """ Perform one pass of the train data through the model and perform backprop
-
-        :param train_loader: Torch geometric data loader with training data
-        :return: loss
-        """
-        running_loss = 0
-        items = 0
-        # Enumerate over the data
-        for idx, batch in enumerate(train_loader):
-            # Move batch to gpu
-            x = batch[0].to(self.device)
-            y = batch[1].to(self.device)
-
-            # Transform the batch of graphs with the model
-            self.optimizer.zero_grad()
-            self.model.train(True)
-            y_hat = self.model(x)
-
-            # Calculating the loss and gradients
-            loss = self.loss_fn(y_hat, y)
-
-            if self.anchored:
-                # Calculate the total anchored L2 loss
-                l2_loss = 0
-                for param_name, params in self.model.named_parameters():
-                    anchored_param = self.model.anchor_weights[param_name]
-
-                    l2_loss += (self.l2_lambda/len(y)) * torch.mul(params - anchored_param,
-                                                                   params - anchored_param).sum()
-
-                # Add anchored loss to regular loss according to Pearce et al. (2018)
-                loss = loss + l2_loss
-
-            if not loss > 0:
-                warnings.warn(f"Failed forward pass on batch {idx}, y_hat = {y_hat}", category=RuntimeWarning)
-            else:
-                # Update using the gradients
-                loss.backward()
-                self.optimizer.step()
-
-                running_loss += loss.item() * len(y)
-                items += len(y)
-
-        return running_loss / items
-
-    def test(self, data_loader):
-        """ Perform testing
-
-        :param data_loader:  Torch geometric data loader with test data
-        :return: A tuple of two 1D-tensors (predicted, true)
-        """
-        y_pred, ys = [], []
-        with torch.no_grad():
+        for epoch in bar:
+            running_loss = 0.0
+            n_samples = 0
             for batch in data_loader:
                 x = batch[0].to(self.device)
                 y = batch[1].to(self.device)
 
-                pred = self.model(x)
-                ys.extend([i for i in y.tolist()])
-                y_pred.extend([i for i in pred.tolist()])
+                # ELBO gradient and add loss to running loss
+                running_loss += self.svi.step(x, y)
+                n_samples += x.shape[0]
 
-        return torch.tensor(y_pred), torch.tensor(ys)
+            loss = running_loss / n_samples
+            self.train_losses.append(loss)
+            bar.set_postfix(loss=f'{loss:.4f}')
 
-    def predict(self, data_loader):
-        """ Predict bioactivity on molecular graphs
+    def test(self):
+        raise NotImplementedError
 
-        :param data_loader:  Torch geometric data loader with molecular graphs
-        :return: A 1D-tensors of predicted values
-        """
-        y_pred = []
-        with torch.no_grad():
-            for batch in data_loader:
-                x = batch[0].to(self.device)
+    def predict(self, data_loader, num_samples: int = 500, return_posterior: bool = False):
 
-                y_hat = self.model(x)
-                y_pred.extend([i for i in y_hat.tolist()])
+        predictive = Predictive(self.model, guide=self.guide, num_samples=num_samples, return_sites=("obs", "_RETURN"))
 
-        return torch.tensor(y_pred)
+        predictions = {'y_hat': {'pred': tensor([], device=self.device), 'mean': tensor([], device=self.device),
+                                 'std': tensor([], device=self.device)},
+                       'posterior': {'pred': tensor([], device=self.device), 'mean': tensor([], device=self.device),
+                                     'std': tensor([], device=self.device)}}
 
-    def __repr__(self):
-        return f"{self.model}"
+        for batch in data_loader:
 
+            x = batch[0].to(self.device)
+            samples = predictive(x.unsqueeze(0) if len(x.size()) == 1 else x)
+            n = len(samples['obs'])
+            if len(samples['_RETURN'].size()) == 1 and return_posterior:
+                samples['_RETURN'] = samples['_RETURN'].reshape([n, 1])
 
-class MLP(torch.nn.Module):
-    def __init__(self, in_feats: int = 5, out_feats: int = 1, hidden_size: int = 64, n_layers: int = 3):
-        super(MLP, self).__init__()
+            predictions['y_hat']['pred'] = torch.cat((predictions['y_hat']['pred'], samples['obs'].T), 0)
+            y_hat_mean = torch.mean(samples['obs'], dim=0)
+            predictions['y_hat']['mean'] = torch.cat((predictions['y_hat']['mean'], y_hat_mean), 0)
+            y_hat_std = torch.std(samples['obs'], dim=0)
+            predictions['y_hat']['std'] = torch.cat((predictions['y_hat']['std'], y_hat_std), 0)
 
-        self.in_feats = in_feats
-        self.out_feats = out_feats
-        self.hidden_size = hidden_size
-        self.n_layers = n_layers
+            if return_posterior:
+                predictions['posterior']['pred'] = torch.cat((predictions['posterior']['pred'], samples['obs'].T), 0)
+                post_mean = torch.mean(samples['_RETURN'], dim=0)
+                predictions['posterior']['mean'] = torch.cat((predictions['posterior']['mean'], post_mean), 0)
+                post_std = torch.std(samples['_RETURN'], dim=0)
+                predictions['posterior']['std'] = torch.cat((predictions['posterior']['std'], post_std), 0)
 
-        self.fc = torch.nn.ModuleList()
-        self.norm = torch.nn.BatchNorm1d(hidden_size)
-        for k in range(n_layers):
-            self.fc.append(Linear(in_feats if k == 0 else hidden_size, hidden_size))
-        self.lin_out = Linear(hidden_size, out_feats)
+        if return_posterior:
+            return predictions['y_hat']['pred'], predictions['y_hat']['mean'], predictions['y_hat']['std'], \
+                   predictions['posterior']['pred'], predictions['posterior']['mean'], predictions['posterior']['std']
 
-    def reset_parameters(self):
-        for lin in self.fc:
-            lin.reset_parameters()
-        self.lin_out.reset_parameters()
+        return predictions['y_hat']['pred'], predictions['y_hat']['mean'], predictions['y_hat']['std']
 
-    def forward(self,  x: Tensor) -> Tensor:
-        for lin in self.fc:
-            x = F.relu(self.norm(lin(x)))
-        x = self.lin_out(x)
-
-        return x
+# y_hat_5 = samples['obs'].kthvalue(int(n * 0.05), dim=0)[0]
+# predictions['y_hat']['5%'] = torch.cat((predictions['y_hat']['5%'], y_hat_5), 0)
+# y_hat_95 = samples['obs'].kthvalue(int(n * 0.95), dim=0)[0]
+# predictions['y_hat']['95%'] = torch.cat((predictions['y_hat']['95%'], y_hat_95), 0)
