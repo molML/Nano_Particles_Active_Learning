@@ -21,6 +21,7 @@ from pyro.infer import SVI, Trace_ELBO, Predictive
 from tqdm.auto import trange
 from xgboost import XGBRegressor
 from sklearn.ensemble import RandomForestRegressor
+from nano.utils import numpy_to_dataloader
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -65,6 +66,95 @@ class RFEnsemble:
 
     def __repr__(self) -> str:
         return f"Ensemble of {len(self.models)} Random Forest Regressors"
+
+
+class BayesianNN:
+    def __init__(self, in_feats: int = 5, hidden_size: int = 32, n_layers: int = 3, activation: str = 'relu',
+                 seed: int = 42, lr=1e-3, to_gpu: bool = False, epochs: int = 10000):
+
+        self.lr = lr
+        self.train_losses = []
+        self.epochs = epochs
+        self.epoch = 0
+        self.seed = seed
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() and to_gpu else "cpu")
+        pyro.set_rng_seed(seed)
+
+        # Init model
+        self.model = NN(in_feats=in_feats, hidden_size=hidden_size, activation=activation, n_layers=n_layers,
+                        to_gpu=to_gpu)
+        self.model = self.model.to(self.device)
+
+        # Init Guide model
+        self.guide = AutoDiagonalNormal(self.model)
+        self.guide = self.guide.to(self.device)
+        # Init optimizer
+        adam = pyro.optim.Adam({"lr": lr})
+        # Stochastic Variational Inference
+        self.svi = SVI(self.model, self.guide, adam, loss=Trace_ELBO())
+
+    def train(self, x, y, epochs: int = None, batch_size: int = 256):
+
+        data_loader = numpy_to_dataloader(x, y, batch_size=batch_size)
+
+        pyro.clear_param_store()
+        bar = trange(self.epochs if epochs is None else epochs)
+
+        for epoch in bar:
+            running_loss = 0.0
+            n_samples = 0
+            for batch in data_loader:
+                x = batch[0].to(self.device)
+                y = batch[1].to(self.device)
+
+                # ELBO gradient and add loss to running loss
+                running_loss += self.svi.step(x, y)
+                n_samples += x.shape[0]
+
+            loss = running_loss / n_samples
+            self.train_losses.append(loss)
+            bar.set_postfix(loss=f'{loss:.4f}')
+
+    def test(self):
+        raise NotImplementedError
+
+    def predict(self, x, num_samples: int = 500, return_posterior: bool = False, batch_size: int = 256):
+
+        data_loader = numpy_to_dataloader(x, batch_size=batch_size)
+
+        predictive = Predictive(self.model, guide=self.guide, num_samples=num_samples, return_sites=("obs", "_RETURN"))
+
+        predictions = {'y_hat': {'pred': tensor([], device=self.device), 'mean': tensor([], device=self.device),
+                                 'std': tensor([], device=self.device)},
+                       'posterior': {'pred': tensor([], device=self.device), 'mean': tensor([], device=self.device),
+                                     'std': tensor([], device=self.device)}}
+
+        for batch in data_loader:
+
+            x = batch[0].to(self.device)
+            samples = predictive(x.unsqueeze(0) if len(x.size()) == 1 else x)
+            n = len(samples['obs'])
+            if len(samples['_RETURN'].size()) == 1 and return_posterior:
+                samples['_RETURN'] = samples['_RETURN'].reshape([n, 1])
+
+            predictions['y_hat']['pred'] = torch.cat((predictions['y_hat']['pred'], samples['obs'].T), 0)
+            y_hat_mean = torch.mean(samples['obs'], dim=0)
+            predictions['y_hat']['mean'] = torch.cat((predictions['y_hat']['mean'], y_hat_mean), 0)
+            y_hat_std = torch.std(samples['obs'], dim=0)
+            predictions['y_hat']['std'] = torch.cat((predictions['y_hat']['std'], y_hat_std), 0)
+
+            if return_posterior:
+                predictions['posterior']['pred'] = torch.cat((predictions['posterior']['pred'], samples['obs'].T), 0)
+                post_mean = torch.mean(samples['_RETURN'], dim=0)
+                predictions['posterior']['mean'] = torch.cat((predictions['posterior']['mean'], post_mean), 0)
+                post_std = torch.std(samples['_RETURN'], dim=0)
+                predictions['posterior']['std'] = torch.cat((predictions['posterior']['std'], post_std), 0)
+
+        if return_posterior:
+            return predictions['y_hat']['pred'], predictions['y_hat']['mean'], predictions['y_hat']['std'], \
+                   predictions['posterior']['pred'], predictions['posterior']['mean'], predictions['posterior']['std']
+
+        return predictions['y_hat']['pred'], predictions['y_hat']['mean'], predictions['y_hat']['std']
 
 
 class NN(PyroModule):
@@ -132,91 +222,6 @@ class NN(PyroModule):
         with pyro.plate("data", x.shape[0]):
             obs = pyro.sample("obs", dist.Normal(mu, sigma), obs=y)
         return mu
-
-
-class BayesianNN:
-    def __init__(self, in_feats: int = 5, hidden_size: int = 64, n_layers: int = 3, activation: str = 'relu',
-                 seed: int = 42, lr=1e-3, to_gpu: bool = False, epochs: int = 10000):
-
-        self.lr = lr
-        self.train_losses = []
-        self.epochs = epochs
-        self.epoch = 0
-        self.seed = seed
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() and to_gpu else "cpu")
-        pyro.set_rng_seed(seed)
-
-        # Init model
-        self.model = NN(in_feats=in_feats, hidden_size=hidden_size, activation=activation, n_layers=n_layers,
-                        to_gpu=to_gpu)
-        self.model = self.model.to(self.device)
-
-        # Init Guide model
-        self.guide = AutoDiagonalNormal(self.model)
-        self.guide = self.guide.to(self.device)
-        # Init optimizer
-        adam = pyro.optim.Adam({"lr": lr})
-        # Stochastic Variational Inference
-        self.svi = SVI(self.model, self.guide, adam, loss=Trace_ELBO())
-
-    def train(self, data_loader, epochs: int = None):
-
-        pyro.clear_param_store()
-        bar = trange(self.epochs if epochs is None else epochs)
-
-        for epoch in bar:
-            running_loss = 0.0
-            n_samples = 0
-            for batch in data_loader:
-                x = batch[0].to(self.device)
-                y = batch[1].to(self.device)
-
-                # ELBO gradient and add loss to running loss
-                running_loss += self.svi.step(x, y)
-                n_samples += x.shape[0]
-
-            loss = running_loss / n_samples
-            self.train_losses.append(loss)
-            bar.set_postfix(loss=f'{loss:.4f}')
-
-    def test(self):
-        raise NotImplementedError
-
-    def predict(self, data_loader, num_samples: int = 500, return_posterior: bool = False):
-
-        predictive = Predictive(self.model, guide=self.guide, num_samples=num_samples, return_sites=("obs", "_RETURN"))
-
-        predictions = {'y_hat': {'pred': tensor([], device=self.device), 'mean': tensor([], device=self.device),
-                                 'std': tensor([], device=self.device)},
-                       'posterior': {'pred': tensor([], device=self.device), 'mean': tensor([], device=self.device),
-                                     'std': tensor([], device=self.device)}}
-
-        for batch in data_loader:
-
-            x = batch[0].to(self.device)
-            samples = predictive(x.unsqueeze(0) if len(x.size()) == 1 else x)
-            n = len(samples['obs'])
-            if len(samples['_RETURN'].size()) == 1 and return_posterior:
-                samples['_RETURN'] = samples['_RETURN'].reshape([n, 1])
-
-            predictions['y_hat']['pred'] = torch.cat((predictions['y_hat']['pred'], samples['obs'].T), 0)
-            y_hat_mean = torch.mean(samples['obs'], dim=0)
-            predictions['y_hat']['mean'] = torch.cat((predictions['y_hat']['mean'], y_hat_mean), 0)
-            y_hat_std = torch.std(samples['obs'], dim=0)
-            predictions['y_hat']['std'] = torch.cat((predictions['y_hat']['std'], y_hat_std), 0)
-
-            if return_posterior:
-                predictions['posterior']['pred'] = torch.cat((predictions['posterior']['pred'], samples['obs'].T), 0)
-                post_mean = torch.mean(samples['_RETURN'], dim=0)
-                predictions['posterior']['mean'] = torch.cat((predictions['posterior']['mean'], post_mean), 0)
-                post_std = torch.std(samples['_RETURN'], dim=0)
-                predictions['posterior']['std'] = torch.cat((predictions['posterior']['std'], post_std), 0)
-
-        if return_posterior:
-            return predictions['y_hat']['pred'], predictions['y_hat']['mean'], predictions['y_hat']['std'], \
-                   predictions['posterior']['pred'], predictions['posterior']['mean'], predictions['posterior']['std']
-
-        return predictions['y_hat']['pred'], predictions['y_hat']['mean'], predictions['y_hat']['std']
 
 # y_hat_5 = samples['obs'].kthvalue(int(n * 0.05), dim=0)[0]
 # predictions['y_hat']['5%'] = torch.cat((predictions['y_hat']['5%'], y_hat_5), 0)
