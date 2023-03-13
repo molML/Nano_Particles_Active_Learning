@@ -12,18 +12,15 @@ Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import tensor
-from torch.nn import Linear
 import pyro
 import pyro.distributions as dist
 from pyro.nn import PyroModule, PyroSample
 from pyro.infer.autoguide import AutoDiagonalNormal
 from pyro.infer import SVI, Trace_ELBO, Predictive
-from tqdm.auto import trange, tqdm
+from tqdm.auto import trange
 from xgboost import XGBRegressor
 from sklearn.ensemble import RandomForestRegressor
-from copy import deepcopy
 import warnings
 warnings.filterwarnings("ignore")
 
