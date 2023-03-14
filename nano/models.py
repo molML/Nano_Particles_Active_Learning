@@ -1,17 +1,27 @@
 """
 
-Model Ensemble wrapper for uncertainty estimation. We use a XGBoost model, as it is considered as the state-of-the-art
-for tabular data [1].
+All ML models. Firstly: model ensemble wrapper for uncertainty estimation with Random Forest and XGBoost.
+We use a XGBoost model, as it is considered as the state-of-the-art for tabular data [1], with RandomForest following.
+Secondly, we implement a Feed Forward Bayesian Neural Network based on Pyro [2].
+
 
 [1] Ravid Shwartz-Ziv and Amitai Armon, 2021, arXiv:2106.03253
+[2] Bingham, E. et al. (2019). The Journal of Machine Learning Research, 20(1), 973-978.
 
-Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
+Derek van Tilborg | 14-03-2023 | Eindhoven University of Technology
+
+Contains:
+    - XGBoostEnsemble:  Ensemble of XGBoost models
+    - RFEnsemble:       Ensemble of RF models
+    - BayesianNN:       NN wrapper with train/predict functions
+    - NN:               Bayesian NN based on Pyro
 
 """
 
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch import tensor
 import pyro
 import pyro.distributions as dist
@@ -29,7 +39,6 @@ warnings.filterwarnings("ignore")
 class XGBoostEnsemble:
     """ Ensemble of n XGBoost regressors, seeded differently """
     def __init__(self, ensemble_size: int = 10, **kwargs) -> None:
-
         self.models = {i: XGBRegressor(random_state=i, **kwargs) for i in range(ensemble_size)}
 
     def predict(self, x: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray):
@@ -50,7 +59,6 @@ class XGBoostEnsemble:
 class RFEnsemble:
     """ Ensemble of n XGBoost regressors, seeded differently """
     def __init__(self, ensemble_size: int = 10, **kwargs) -> None:
-
         self.models = {i: RandomForestRegressor(random_state=i, **kwargs) for i in range(ensemble_size)}
 
     def predict(self, x: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray):
@@ -69,9 +77,11 @@ class RFEnsemble:
 
 
 class BayesianNN:
+    """ Bayesian Neural Network wrapper with train() and predict() functions. """
     def __init__(self, in_feats: int = 5, hidden_size: int = 32, n_layers: int = 3, activation: str = 'relu',
                  seed: int = 42, lr=1e-3, to_gpu: bool = False, epochs: int = 10000):
 
+        # Define some vars and seed random state
         self.lr = lr
         self.train_losses = []
         self.epochs = epochs
@@ -82,8 +92,7 @@ class BayesianNN:
 
         # Init model
         self.model = NN(in_feats=in_feats, hidden_size=hidden_size, activation=activation, n_layers=n_layers,
-                        to_gpu=to_gpu)
-        self.model = self.model.to(self.device)
+                        to_gpu=to_gpu).to(self.device)
 
         # Init Guide model
         self.guide = AutoDiagonalNormal(self.model)
@@ -93,13 +102,14 @@ class BayesianNN:
         # Stochastic Variational Inference
         self.svi = SVI(self.model, self.guide, adam, loss=Trace_ELBO())
 
-    def train(self, x, y, epochs: int = None, batch_size: int = 256):
+    def train(self, x: np.ndarray, y: np.ndarray, epochs: int = None, batch_size: int = 256) -> None:
 
+        # Convert numpy to Torch
         data_loader = numpy_to_dataloader(x, y, batch_size=batch_size)
 
+        # Training loop
         pyro.clear_param_store()
         bar = trange(self.epochs if epochs is None else epochs)
-
         for epoch in bar:
             running_loss = 0.0
             n_samples = 0
@@ -115,13 +125,13 @@ class BayesianNN:
             self.train_losses.append(loss)
             bar.set_postfix(loss=f'{loss:.4f}')
 
-    def test(self):
-        raise NotImplementedError
+    def predict(self, x, num_samples: int = 500, return_posterior: bool = False, batch_size: int = 256) -> \
+            (tensor, tensor, tensor):
 
-    def predict(self, x, num_samples: int = 500, return_posterior: bool = False, batch_size: int = 256):
-
+        # Convert numpy to Torch
         data_loader = numpy_to_dataloader(x, batch_size=batch_size)
 
+        # Construct predictive distribution
         predictive = Predictive(self.model, guide=self.guide, num_samples=num_samples, return_sites=("obs", "_RETURN"))
 
         predictions = {'y_hat': {'pred': tensor([], device=self.device), 'mean': tensor([], device=self.device),
@@ -132,11 +142,14 @@ class BayesianNN:
         for batch in data_loader:
 
             x = batch[0].to(self.device)
+
+            # Reshape if needed
             samples = predictive(x.unsqueeze(0) if len(x.size()) == 1 else x)
             n = len(samples['obs'])
             if len(samples['_RETURN'].size()) == 1 and return_posterior:
                 samples['_RETURN'] = samples['_RETURN'].reshape([n, 1])
 
+            # Add predictions from each batch to the dict
             predictions['y_hat']['pred'] = torch.cat((predictions['y_hat']['pred'], samples['obs'].T), 0)
             y_hat_mean = torch.mean(samples['obs'], dim=0)
             predictions['y_hat']['mean'] = torch.cat((predictions['y_hat']['mean'], y_hat_mean), 0)
@@ -144,6 +157,7 @@ class BayesianNN:
             predictions['y_hat']['std'] = torch.cat((predictions['y_hat']['std'], y_hat_std), 0)
 
             if return_posterior:
+                # Add predictions from each batch to the dict
                 predictions['posterior']['pred'] = torch.cat((predictions['posterior']['pred'], samples['obs'].T), 0)
                 post_mean = torch.mean(samples['_RETURN'], dim=0)
                 predictions['posterior']['mean'] = torch.cat((predictions['posterior']['mean'], post_mean), 0)
@@ -158,15 +172,17 @@ class BayesianNN:
 
 
 class NN(PyroModule):
+    """ Simple feedforward Bayesian NN. We use PyroSample to place a prior over the weight and bias parameters,
+     instead of treating them as fixed learnable parameters. See http://pyro.ai/examples/bayesian_regression.html"""
     def __init__(self, in_feats=5, n_layers: int = 3, hidden_size: int = 32, activation: str = 'relu',
-                 to_gpu: bool = True):
+                 to_gpu: bool = True, out_feats: int = 1) -> None:
         super().__init__()
-        nh0, nh = in_feats, hidden_size
-        self.n_layers = n_layers
+
+        # Define some vars
+        self.n_layers, nh0, nh, nhout = n_layers, in_feats, hidden_size, out_feats
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() and to_gpu else "cpu")
         assert 1 <= n_layers <= 5, f"'n_layers' should be between 1 and 5, not {n_layers}"
         assert activation in ['relu', 'gelu', 'elu', 'leaky']
-
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() and to_gpu else "cpu")
 
         self.fc0 = PyroModule[nn.Linear](nh0, nh)
         self.fc0.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh, nh0]).to_event(2))
@@ -192,38 +208,27 @@ class NN(PyroModule):
             self.fc4.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh, nh]).to_event(2))
             self.fc4.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh]).to_event(1))
 
-        self.out = PyroModule[nn.Linear](nh, 1)
-        self.out.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([1, nh]).to_event(2))
-        self.out.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([1]).to_event(1))
+        self.out = PyroModule[nn.Linear](nh, nhout)
+        self.out.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nhout, nh]).to_event(2))
+        self.out.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nhout]).to_event(1))
 
-        if activation == 'relu':
-            self.act = nn.ReLU()
-        if activation == 'elu':
-            self.act = nn.ELU()
-        if activation == 'gelu':
-            self.act = nn.GELU()
-        if activation == 'leaky':
-            self.act = nn.LeakyReLU()
-
-    def forward(self, x, y=None):
-
-        x = self.act(self.fc0(x))
+    def forward(self, x: tensor, y: tensor = None) -> tensor:
+        # Predict the mean
+        x = F.relu(self.fc0(x))
         if self.n_layers > 1:
-            x = self.act(self.fc1(x))
+            x = F.relu(self.fc1(x))
         if self.n_layers > 2:
-            x = self.act(self.fc2(x))
+            x = F.relu(self.fc2(x))
         if self.n_layers > 3:
-            x = self.act(self.fc3(x))
+            x = F.relu(self.fc3(x))
         if self.n_layers > 4:
-            x = self.act(self.fc4(x))
+            x = F.relu(self.fc4(x))
         mu = self.out(x).squeeze()
 
+        # Give the obs argument to the pyro.sample statement to condition on the observed data y_data with a learned
+        # observation noise sigma. See http://pyro.ai/examples/bayesian_regression.html
         sigma = pyro.sample("sigma", dist.Uniform(0., tensor(1.0, device=self.device)))
         with pyro.plate("data", x.shape[0]):
             obs = pyro.sample("obs", dist.Normal(mu, sigma), obs=y)
-        return mu
 
-# y_hat_5 = samples['obs'].kthvalue(int(n * 0.05), dim=0)[0]
-# predictions['y_hat']['5%'] = torch.cat((predictions['y_hat']['5%'], y_hat_5), 0)
-# y_hat_95 = samples['obs'].kthvalue(int(n * 0.95), dim=0)[0]
-# predictions['y_hat']['95%'] = torch.cat((predictions['y_hat']['95%'], y_hat_95), 0)
+        return mu
