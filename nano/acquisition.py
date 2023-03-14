@@ -15,12 +15,13 @@ Derek van Tilborg | 13-03-2023  | Eindhoven University of Technology
 """
 
 import numpy as np
+from typing import Union
 from sklearn.cluster import KMeans
 from sklearn.metrics import pairwise_distances_argmin_min
 
 
 def acquisition_function(screen_df, m: int = 100, k: int = 10, seed: int = 42, mode: str = 'explorative',
-                         pdi_cutoff: float = 0.2):
+                         pdi_cutoff: float = 0.2, previously_picked: Union[np.ndarray, list] = None):
     """ Acquisition algorithm
     Explorative:
         1. select top m most uncertain samples
@@ -44,6 +45,9 @@ def acquisition_function(screen_df, m: int = 100, k: int = 10, seed: int = 42, m
     """
 
     assert mode in ['explorative', 'exploitative'], f"'mode' should be 'explorative' or 'exploitative'. Not {mode}"
+
+    # Remove all formulations that have already been picked in previous cycles
+    screen_df = screen_df.loc[~screen_df['ID'].isin(previously_picked)]
 
     # Remove all formulations with a predicted PdI higher than the cuttoff value
     screen_df = screen_df.loc[screen_df['y_hat_pdi'] < pdi_cutoff]
