@@ -3,8 +3,8 @@
 Acquisition function for explorative and exploitative sample selection.
 
 Explorative acquisition is based on the "Diverse mini-Batch Active Learning" algorithm [1]. Here samples are first
-filtered by their uncertainty, after which the k-most representative samples are selected from this subset by kmeans
-clustering. Exploitative acquisition is a simple two-prong subset algorithm where first the highest predicted samples
+filtered by their uncertainty (m), after which the k-most representative samples are selected from this subset by kmeans
+clustering. Exploitative acquisition is a simple two-prong subset algorithm where first the m highest predicted samples
 are selected, after which we take the k-most certain ones from this subset. In both cases we first remove any samples
 that are likely very unstable (predicted PdI cutoff of 0.2)
 
