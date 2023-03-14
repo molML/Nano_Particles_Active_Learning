@@ -1,49 +1,18 @@
 """
 
-Code for Bayesian hyperparamter optimization using n-fold cross-validation.
+Code for Bayesian hyperparamter optimization using bootstrapped n-fold cross-validation.
 
 Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 
 """
 
-from skopt import gp_minimize
-from skopt.space.space import Categorical, Real, Integer
-from nano.eval import k_fold_cross_validation, calc_rmse
-from skopt.utils import use_named_args
-import os
 import numpy as np
 from typing import Union
-
-
-XGBoost_hypers = {
-        # Parameters that we are going to tune.
-        'max_depth': [2, 20],
-        'min_child_weight': [1, 20],
-        'gamma': [0.0, 10.0],
-        'learning_rate': [0.001, 1],
-        'n_estimators': [50, 500],
-        'eta': [0.1, 1.0],
-        'max_delta_step': [0, 10],
-        'subsample': [0.1, 1.0],
-        'colsample_bytree': [0.1, 1.0],
-        'reg_alpha': [0.0, 10.0],
-        'reg_lambda': [0.0, 10.0],
-        # Other parameters
-        'objective': ['reg:squarederror'],
-        'eval_metric': ["rmse"]
-    }
-
-RF_hypers = {'bootstrap': [True],
-             'max_depth': [10, 200],
-             'max_features': ['auto', 'sqrt'],
-             'min_samples_leaf': [1, 5],
-             'min_samples_split': [2, 10],
-             'n_estimators': [50, 2000]}
-
-BNN_hypers = {'lr': [1e-3, 1e-5],
-              'hidden_size': [16, 32, 64],
-              'epochs': [1000, 5000, 10000, 20000],
-              'n_layers': [1, 5]}
+from skopt import gp_minimize
+from skopt.space.space import Categorical, Real, Integer
+from skopt.utils import use_named_args
+from nano.eval import k_fold_cross_validation, calc_rmse
+from nano.hyperparameters import RF_hypers, XGBoost_hypers, BNN_hypers
 
 
 def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, log_file: str, n_calls: int = 50, min_init_points: int = 10,
