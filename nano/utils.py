@@ -1,18 +1,22 @@
 """
 
-A collection of support functions
+A collection of support functions.
+    - load_data()
+    - augment_data()
+    - screen_predict()
+    - numpy_to_dataloader()
 
 Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 
 """
 
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 import numpy as np
 import pandas as pd
 from torch.utils.data import TensorDataset, DataLoader
 from torch import Tensor
 from sklearn.utils import shuffle as sklearn_shuffle
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 def load_data(cycle: int = 0, seed: int = 42, shuffle: bool = True) -> (np.ndarray, np.ndarray, np.ndarray,
@@ -74,6 +78,7 @@ def augment_data(x: np.ndarray, y: np.ndarray, n_times: int = 5, shuffle: bool =
 
 
 def screen_predict(screen_x, screen_id, uptake_model, pdi_model, filename: str):
+    """ Helper function to perform predictions and store them in the correct format for screening"""
     # Perform predictions
     y_hat_uptake, y_hat_mean_uptake, y_hat_uncertainty_uptake = uptake_model.predict(screen_x)
     y_hat_pdi, y_hat_mean_pdi, y_hat_uncertainty_pdi = pdi_model.predict(screen_x)
@@ -95,7 +100,6 @@ def screen_predict(screen_x, screen_id, uptake_model, pdi_model, filename: str):
 
 
 def numpy_to_dataloader(x: np.ndarray, y: np.ndarray = None, **kwargs) -> DataLoader:
-
     if y is None:
         return DataLoader(TensorDataset(Tensor(x)),  **kwargs)
     else:

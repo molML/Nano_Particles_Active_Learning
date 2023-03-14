@@ -1,6 +1,11 @@
 """
 
 Code for Bayesian hyperparamter optimization using bootstrapped n-fold cross-validation.
+    - optimize_hyperparameters()
+    - BayesianOptimization
+    - dict_to_search_space()
+    - convert_types()
+    - get_best_hyperparameters()
 
 Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 

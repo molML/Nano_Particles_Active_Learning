@@ -5,11 +5,12 @@ Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 
 """
 
-import numpy as np
+import torch
 from torch import Tensor
 from typing import Union
 from nano.models import XGBoostEnsemble, RFEnsemble, BayesianNN
 from nano.utils import augment_data
+import numpy as np
 import pandas as pd
 
 
@@ -17,10 +18,10 @@ def evaluate_model(x: np.ndarray, y: np.ndarray, id: np.ndarray, filename: str, 
                    bootstrap: int = 10, n_folds: int = 5, ensemble_size=10, augment=5, model: str = 'xgb'):
     """ Function to evaluate model performance through bootstrapped k-fold cross-validation"""
 
-    # estimate model performance over b bootstraps
+    # estimate mean model performance over b bootstraps
     y_hats, y_hats_uncertainty = [], []
     for b in range(bootstrap):
-        y_hat, y_hat_uncertainty = k_fold_cross_validation(x, y, seed=b,
+        y_hat, y_hat_uncertainty = k_fold_cross_validation(x, y, seed=b,  # every bootstrap we have different CV splits
                                                            n_folds=n_folds,
                                                            ensemble_size=ensemble_size,
                                                            augment=augment, model=model,
@@ -54,18 +55,19 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ense
                             augment: int = False, model: str = 'xgb', **kwargs) -> (np.ndarray, np.ndarray):
     assert len(x) == len(y), f"x and y should contain the same number of samples x:{len(x)}, y:{len(y)}"
 
+    # Define some variables
     y_hats, y_hats_uncertainty = np.zeros(y.shape), np.zeros(y.shape)
-
+    # Set random state and create folds
     rng = np.random.default_rng(seed)
     folds = rng.integers(low=0, high=n_folds, size=len(x))
 
     for i in range(n_folds):
+        # Subset train/test folds
         x_train, y_train = x[folds != i], y[folds != i]
-
+        x_test, y_test = x[folds == i], y[folds == i]
+        # Augment train data
         if augment:
             x_train, y_train = augment_data(x_train, y_train, n_times=augment, seed=seed)
-
-        x_val, y_val = x[folds == i], y[folds == i]
 
         if model == 'rf':
             m = RFEnsemble(ensemble_size=ensemble_size, **kwargs)
@@ -73,20 +75,21 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ense
             m = XGBoostEnsemble(ensemble_size=ensemble_size, **kwargs)
         elif model == 'bnn':
             m = BayesianNN(**kwargs)
+
+        # Train and predict on the test split
         m.train(x_train, y_train)
+        _, y_hat_mean, y_hat_uncertainty = m.predict(x_test)
 
-        _, y_hat_mean, y_hat_uncertainty = m.predict(x_val)
-
+        # Delete the NN to free memory
         if model == 'bnn':
             try:
                 del m.model
-            except:
-                pass
-            try:
                 del m
+                torch.cuda.empty_cache()
             except:
                 pass
 
+        # Add the predicted test values to the y_hats tensor in the correct spot along with the uncertainty
         y_hats[folds == i] = y_hat_mean
         y_hats_uncertainty[folds == i] = y_hat_uncertainty
 
