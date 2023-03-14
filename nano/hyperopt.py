@@ -17,7 +17,8 @@ from nano.hyperparameters import RF_hypers, XGBoost_hypers, BNN_hypers
 
 def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, log_file: str, n_calls: int = 50, min_init_points: int = 10,
                              bootstrap: int = 10, n_folds: int = 10, ensemble_size: int = 10, augment: int = False,
-                             model="xgb"):
+                             model="xgb") -> dict:
+    """ Wrapper function to optimize hyperparameters on a dataset using bootstrapped k-fold cross-validation """
 
     assert model in ['rf', 'bnn', 'xgb'], f"'model' must be 'rf', 'bnn', or 'xgb'"
 
@@ -40,9 +41,9 @@ def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, log_file: str, n_call
 
 class BayesianOptimization:
     def __init__(self):
-        """ Init the class with a trainable model. The model class should contain a train() and test() function
-        and be initialized with its hyperparameters """
-        self.best_score = 100
+        """ Init the class with a trainable model. The model class should contain a train() and predict() function
+        and be initialized with all of its hyperparameters """
+        self.best_score = 1000  # Arbitrary high starting score
         self.history = []
         self.results = None
 
@@ -50,10 +51,11 @@ class BayesianOptimization:
                  n_calls: int = 50, min_init_points: int = 10, log_file: str = None, n_folds: int = 10,
                  bootstrap: int = 10, ensemble_size: int = 10, augment: int = False, model: str = 'xgb'):
 
-        # Prevent too mant calls if there aren't as many possible hyperparameter combi's as calls (10 in the min calls)
+        # Convert dict of hypers to skopt search_space
         dimensions = {k: [v] if type(v) is not list else v for k, v in dimensions.items()}
         dimensions = dict_to_search_space(dimensions)
 
+        # touch hypers log file
         with open(log_file, 'w') as f:
             f.write(f"score,hypers\n")
 
@@ -61,13 +63,11 @@ class BayesianOptimization:
         @use_named_args(dimensions=dimensions)
         def objective(**hyperparameters) -> float:
 
-            already_done = False
+            # If the same set of hypers gets selected twice (which can happen in the first few runs), skip it
             if hyperparameters in [j for i, j in self.history]:
-                already_done = True
                 score = [i for i, j in self.history if j == hyperparameters][0]
-                print("skipping - already ran this set of hyperparameters")
-
-            if not already_done:
+                print(f"skipping - already ran this set of hyperparameters: {hyperparameters}")
+            else:
                 try:
                     hyperparameters = convert_types(hyperparameters)
                     print(f"Current hyperparameters: {hyperparameters}")
@@ -88,23 +88,24 @@ class BayesianOptimization:
                     print(">>  Failed")
                     score = self.best_score + 1
 
+            # append to history and update best score if needed
             self.history.append((score, hyperparameters))
-
             if score < self.best_score:
                 self.best_score = score
 
             return score
 
-        # Perform Bayesian hyperparameter optimization with 5-fold cross-validation
+        # Perform Bayesian hyperparameter optimization with n-fold cross-validation
         self.results = gp_minimize(func=objective,
                                    dimensions=dimensions,
-                                   acq_func='EI',  # expected improvement
-                                   n_initial_points=min_init_points,
-                                   n_calls=n_calls,
+                                   acq_func='EI',  # Expected Improvement
+                                   n_initial_points=min_init_points,    # Run for this many cycles randomly before BO
+                                   n_calls=n_calls,  # Total calls
                                    verbose=True)
 
 
-def dict_to_search_space(hyperparams: dict[str, list[Union[float, str, int]]]):
+def dict_to_search_space(hyperparams: dict[str, list[Union[float, str, int]]]) -> list:
+    """ Takes a dict of hyperparameters and converts to skopt search_space"""
 
     search_space = []
 
@@ -123,6 +124,7 @@ def dict_to_search_space(hyperparams: dict[str, list[Union[float, str, int]]]):
 
 
 def convert_types(params: dict) -> dict:
+    """ Convert to proper typing. For some reason skopt will mess with float and int typing"""
     new_dict = {}
     for k, v in params.items():
         if isinstance(v, np.generic):
@@ -133,10 +135,9 @@ def convert_types(params: dict) -> dict:
 
 
 def get_best_hyperparameters(filename: str) -> dict:
-    """ Get the best hyperparameters from the log file for an experiment + dataset combi """
+    """ Get the best hyperparameters from the log file for an experiment """
     with open(filename) as f:
         best_score = 1000000
-        # f=f
         for line in f.readlines()[1:]:
             linesplit = line.split(',')
             if float(linesplit[0]) < best_score:
