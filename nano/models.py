@@ -28,7 +28,7 @@ import pyro.distributions as dist
 from pyro.nn import PyroModule, PyroSample
 from pyro.infer.autoguide import AutoDiagonalNormal
 from pyro.infer import SVI, Trace_ELBO, Predictive
-from tqdm.auto import trange
+from tqdm.auto import trange, tqdm
 from xgboost import XGBRegressor
 from sklearn.ensemble import RandomForestRegressor
 from nano.utils import numpy_to_dataloader
@@ -139,7 +139,7 @@ class BayesianNN:
                        'posterior': {'pred': tensor([], device=self.device), 'mean': tensor([], device=self.device),
                                      'std': tensor([], device=self.device)}}
 
-        for batch in data_loader:
+        for batch in tqdm(data_loader, 'Sampling predictive distribution'):
 
             x = batch[0].to(self.device)
 

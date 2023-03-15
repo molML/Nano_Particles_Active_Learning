@@ -70,7 +70,7 @@ if __name__ == '__main__':
                                                       ensemble_size=ENSEMBLE_SIZE,
                                                       augment=AUGMENT,
                                                       model='bnn')
-
+    # best_hypers_uptake = get_best_hyperparameters(f'results/uptake_model_{CYCLE}_hypers_bnn.csv')
     # Quickly plot predicted vs true to make sure our model makes sense
     scatter(y=uptake_y, y_hat=uptake_eval_results['y_hat'], uncertainty=uptake_eval_results['y_uncertainty'], labels=id)
 
