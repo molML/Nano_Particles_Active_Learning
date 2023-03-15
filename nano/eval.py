@@ -8,7 +8,7 @@ Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 import torch
 from torch import Tensor
 from typing import Union
-from nano.models import XGBoostEnsemble, RFEnsemble, BayesianNN
+from nano.models import XGBoostEnsemble, BayesianNN
 from nano.utils import augment_data
 import numpy as np
 from math import ceil
@@ -68,11 +68,12 @@ def evaluate_model(x: np.ndarray, y: np.ndarray, id: np.ndarray, filename: str, 
 
 
 def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ensemble_size: int = 10, seed: int = 42,
-                            augment: int = False, model: str = 'xgb', **kwargs) -> (np.ndarray, np.ndarray):
+                            augment: int = False, model: str = 'xgb', sampling_freq: int = 500, **kwargs) -> \
+        (np.ndarray, np.ndarray, np.ndarray):
     assert len(x) == len(y), f"x and y should contain the same number of samples x:{len(x)}, y:{len(y)}"
 
     # Define some variables
-    y_hats = np.zeros((y.shape[0], ensemble_size if model != 'bnn' else 500))
+    y_hats = np.zeros((y.shape[0], ensemble_size if model != 'bnn' else sampling_freq))
     y_hats_mean, y_hats_uncertainty = np.zeros(y.shape), np.zeros(y.shape)
     # Set random state and create folds
     rng = np.random.default_rng(seed)
@@ -86,25 +87,28 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ense
         if augment:
             x_train, y_train = augment_data(x_train, y_train, n_times=augment, seed=seed)
 
-        elif model == 'xgb':
+        if model == 'xgb':
             m = XGBoostEnsemble(ensemble_size=ensemble_size, **kwargs)
+
+            # Train and predict on the test split
+            m.train(x_train, y_train)
+            y_hat, y_hat_mean, y_hat_uncertainty = m.predict(x_test)
+            y_hat = y_hat.T
+
         elif model == 'bnn':
             m = BayesianNN(**kwargs)
 
-        # Train and predict on the test split
-        m.train(x_train, y_train)
-        y_hat, y_hat_mean, y_hat_uncertainty = m.predict(x_test)
+            # Train and predict on the test split
+            m.train(x_train, y_train)
+            y_hat, y_hat_mean, y_hat_uncertainty = m.predict(x_test, num_samples=sampling_freq)
 
-        # Delete the NN to free memory
-        if model == 'bnn':
+            # Delete the NN to free memory
             try:
                 del m.model
                 del m
                 torch.cuda.empty_cache()
             except:
                 pass
-        else:
-            y_hat = y_hat.T
 
         # Add the predicted test values to the y_hats tensor in the correct spot along with the uncertainty
         y_hats[folds == i] = y_hat
