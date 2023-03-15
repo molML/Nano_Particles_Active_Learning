@@ -1,5 +1,7 @@
 
 import numpy as np
+import pandas as pd
+from copy import deepcopy
 
 
 def scatter(y, y_hat, uncertainty=None, labels=None):
@@ -25,15 +27,17 @@ def scatter(y, y_hat, uncertainty=None, labels=None):
     plt.show()
 
 
-def picks_pca(screen_df, screen_x, picks):
+def picks_pca(df, screen_x, picks):
     import seaborn as sns
     import matplotlib.pyplot as plt
     from sklearn.decomposition import PCA
+    import pandas as pd
 
-    screen_df['pick'] = 0
-    screen_df.loc[screen_df['ID'].isin(picks), 'pick'] = 1
-    screen_df['alph'] = 0.01
-    screen_df.loc[screen_df['ID'].isin(picks), 'alph'] = 1
+    df = deepcopy(df)
+    df['pick'] = 0
+    df.loc[df['ID'].isin(picks), 'pick'] = 1
+    df['alph'] = 0.01
+    df.loc[df['ID'].isin(picks), 'alph'] = 1
 
     pca_screen = PCA(n_components=2)
     pca_screen = pca_screen.fit_transform(screen_x)
@@ -42,8 +46,8 @@ def picks_pca(screen_df, screen_x, picks):
     plt.figure(figsize=(20, 20))
     sns.scatterplot(
         x="PC 1", y="PC 2",
-        hue=screen_df['pick'],
+        hue=df['pick'],
         data=pca_df,
-        alpha=screen_df['alph']
+        alpha=df['alph']
     )
     plt.show()
