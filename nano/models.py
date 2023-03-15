@@ -56,26 +56,6 @@ class XGBoostEnsemble:
         return f"Ensemble of {len(self.models)} XGBoost Regressors"
 
 
-class RFEnsemble:
-    """ Ensemble of n XGBoost regressors, seeded differently """
-    def __init__(self, ensemble_size: int = 10, **kwargs) -> None:
-        self.models = {i: RandomForestRegressor(random_state=i, **kwargs) for i in range(ensemble_size)}
-
-    def predict(self, x: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray):
-        y_hat = np.array([model.predict(x) for i, model in self.models.items()])
-        y_hat_mean = np.mean(y_hat, axis=0)
-        y_hat_uncertainty = np.std(y_hat, axis=0)
-
-        return y_hat, y_hat_mean, y_hat_uncertainty
-
-    def train(self, x: np.ndarray, y: np.ndarray, **kwargs) -> None:
-        for i, m in self.models.items():
-            self.models[i] = m.fit(x, y)
-
-    def __repr__(self) -> str:
-        return f"Ensemble of {len(self.models)} Random Forest Regressors"
-
-
 class BayesianNN:
     """ Bayesian Neural Network wrapper with train() and predict() functions. """
     def __init__(self, in_feats: int = 5, hidden_size: int = 32, n_layers: int = 3, activation: str = 'relu',

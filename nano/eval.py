@@ -29,7 +29,8 @@ def evaluate_model(x: np.ndarray, y: np.ndarray, id: np.ndarray, filename: str, 
                                                            augment=augment, model=model,
                                                            **hyperparameters)
 
-        # # Calculate the 90% interval
+        # Calculate the 90% interval. We use 'ceil' to prevent errors with smaller ensemble sizes. Note that for
+        # small ensemble sizes/ sampling frequencies, this 90% CI becomes meaningless
         y_hat_sorted = torch.sort(torch.tensor(y_hat), dim=-1)[0]
         bottom = y_hat_sorted.kthvalue(ceil(y_hat_sorted.shape[1] * 0.05), dim=1)[0]
         upper = y_hat_sorted.kthvalue(ceil(y_hat_sorted.shape[1] * 0.95), dim=1)[0]
@@ -85,8 +86,6 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ense
         if augment:
             x_train, y_train = augment_data(x_train, y_train, n_times=augment, seed=seed)
 
-        if model == 'rf':
-            m = RFEnsemble(ensemble_size=ensemble_size, **kwargs)
         elif model == 'xgb':
             m = XGBoostEnsemble(ensemble_size=ensemble_size, **kwargs)
         elif model == 'bnn':
