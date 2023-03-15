@@ -58,7 +58,7 @@ best_hypers_uptake = optimize_hyperparameters(x=x, y=uptake_y,
                                               augment=AUGMENT,
                                               model='bnn')
 
-# best_hypers_uptake = {'lr': 0.001, 'hidden_size': 32, 'epochs': 10000, 'n_layers': 2}
+
 # Evaluate model performance with bootstrapped k-fold cross-validation
 uptake_eval_results, uptake_rmse = evaluate_model(x=x, y=uptake_y, id=id,
                                                   filename=f'results/uptake_model_{CYCLE}_eval_bnn.csv',
@@ -83,17 +83,17 @@ torch.save(uptake_model, f'models/uptake_model_{CYCLE}_bnn.pt')
 
 # hyperparameter optimization
 best_hypers_pdi = optimize_hyperparameters(x=x, y=pdi_y,
-                                           log_file=f'results/pdi_model_{CYCLE}_hypers_bnn.csv',
-                                           n_calls=HYPEROPT_CALLS,
+                                           log_file=f'results/pdi_model_{CYCLE}_hypers_xgb.csv',
+                                           n_calls=500,
                                            bootstrap=BOOTSTRAP,
                                            n_folds=N_FOLDS,
                                            ensemble_size=1,
                                            augment=AUGMENT,
-                                           model='bnn')
+                                           model='xgb')
 
 # Evaluate model performance with bootstrapped k-fold cross-validation
 pdi_eval_results, pdi_rmse = evaluate_model(x=x, y=pdi_y, id=id,
-                                            filename=f'results/pdi_model_{CYCLE}_eval_bnn.csv',
+                                            filename=f'results/pdi_model_{CYCLE}_eval_xgb.csv',
                                             hyperparameters=best_hypers_pdi,
                                             bootstrap=BOOTSTRAP,
                                             n_folds=N_FOLDS,
@@ -101,6 +101,7 @@ pdi_eval_results, pdi_rmse = evaluate_model(x=x, y=pdi_y, id=id,
                                             augment=AUGMENT,
                                             model='bnn')
 
+pdi_eval_results = pd.read_csv(f'results/pdi_model_{CYCLE}_eval_xgb.csv')
 # Quickly plot predicted vs true
 scatter(y=pdi_y, y_hat=pdi_eval_results['y_hat'], uncertainty=pdi_eval_results['y_uncertainty'], labels=id)
 
@@ -119,7 +120,7 @@ pdi_model = torch.load(f'models/pdi_model_{CYCLE}_bnn.pt')
 
 screen_df = screen_predict(screen_x, screen_id, uptake_model, pdi_model, f'results/screen_predictions_{CYCLE}_bnn.csv')
 
-
+# TODO use the 95% interval to subset PdI predictions
 """ Sample acquisition ------------------------------------ """
 
 previously_picked = ...  # TODO find previously picked samples
@@ -138,6 +139,9 @@ picks_pca(screen_df, screen_x, picks)
 picks_df = screen_df.loc[screen_df['ID'].isin(picks)]
 picks_df.to_csv(f'results/picks_{CYCLE}.csv')
 
-
+# TODO some ideas
+# Relationship between each variable and the target
+# Correlation between prediction error and uncertainty (model calibration)
+# Probability mass between low and high uptake
 
 
