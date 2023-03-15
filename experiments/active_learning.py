@@ -88,7 +88,7 @@ if __name__ == '__main__':
                                                n_calls=HYPEROPT_CALLS_XGB,
                                                bootstrap=BOOTSTRAP,
                                                n_folds=N_FOLDS,
-                                               ensemble_size=1,
+                                               ensemble_size=ENSEMBLE_SIZE,
                                                augment=AUGMENT,
                                                model='xgb')
 
