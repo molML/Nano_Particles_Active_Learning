@@ -11,6 +11,7 @@ from typing import Union
 from nano.models import XGBoostEnsemble, RFEnsemble, BayesianNN
 from nano.utils import augment_data
 import numpy as np
+from math import ceil
 import pandas as pd
 
 
@@ -19,19 +20,31 @@ def evaluate_model(x: np.ndarray, y: np.ndarray, id: np.ndarray, filename: str, 
     """ Function to evaluate model performance through bootstrapped k-fold cross-validation"""
 
     # estimate mean model performance over b bootstraps
-    y_hats, y_hats_uncertainty = [], []
+    y_hats, bottom_5, upper_95, y_hats_uncertainty = [], [], [], []
     for b in range(bootstrap):
-        y_hat, y_hat_uncertainty = k_fold_cross_validation(x, y, seed=b,  # every bootstrap we have different CV splits
+        # every "bootstrap" we have different CV splits
+        y_hat, y_hat_mean, y_hat_uncertainty = k_fold_cross_validation(x, y, seed=b,
                                                            n_folds=n_folds,
                                                            ensemble_size=ensemble_size,
                                                            augment=augment, model=model,
                                                            **hyperparameters)
-        y_hats.append(y_hat)
+
+        # # Calculate the 90% interval
+        y_hat_sorted = torch.sort(torch.tensor(y_hat), dim=-1)[0]
+        bottom = y_hat_sorted.kthvalue(ceil(y_hat_sorted.shape[1] * 0.05), dim=1)[0]
+        upper = y_hat_sorted.kthvalue(ceil(y_hat_sorted.shape[1] * 0.95), dim=1)[0]
+
+        bottom_5.append(bottom)
+        upper_95.append(upper)
+        y_hats.append(y_hat_mean)
         y_hats_uncertainty.append(y_hat_uncertainty)
 
     # Take the mean over the bootstraps
     mean_y_hat = np.mean(y_hats, axis=0)
     mean_y_uncertainty = np.mean(y_hats_uncertainty, axis=0)
+
+    mean_bottom_5 = torch.mean(torch.stack(bottom_5), 0)
+    mean_upper_95 = torch.mean(torch.stack(upper_95), 0)
 
     # Put everything in a dataframe and save it somewhere
     df = pd.DataFrame({'ID': id,
@@ -42,6 +55,8 @@ def evaluate_model(x: np.ndarray, y: np.ndarray, id: np.ndarray, filename: str, 
                        'S/AS': x[:, 4],
                        'y': y,
                        'y_hat': mean_y_hat,
+                       'CI_5%': mean_bottom_5,
+                       'CI_95%': mean_upper_95,
                        'y_uncertainty': mean_y_uncertainty})
     df.to_csv(filename)
 
@@ -56,7 +71,8 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ense
     assert len(x) == len(y), f"x and y should contain the same number of samples x:{len(x)}, y:{len(y)}"
 
     # Define some variables
-    y_hats, y_hats_uncertainty = np.zeros(y.shape), np.zeros(y.shape)
+    y_hats = np.zeros((y.shape[0], ensemble_size if model != 'bnn' else 500))
+    y_hats_mean, y_hats_uncertainty = np.zeros(y.shape), np.zeros(y.shape)
     # Set random state and create folds
     rng = np.random.default_rng(seed)
     folds = rng.integers(low=0, high=n_folds, size=len(x))
@@ -78,7 +94,7 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ense
 
         # Train and predict on the test split
         m.train(x_train, y_train)
-        _, y_hat_mean, y_hat_uncertainty = m.predict(x_test)
+        y_hat, y_hat_mean, y_hat_uncertainty = m.predict(x_test)
 
         # Delete the NN to free memory
         if model == 'bnn':
@@ -88,12 +104,15 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ense
                 torch.cuda.empty_cache()
             except:
                 pass
+        else:
+            y_hat = y_hat.T
 
         # Add the predicted test values to the y_hats tensor in the correct spot along with the uncertainty
-        y_hats[folds == i] = y_hat_mean
+        y_hats[folds == i] = y_hat
+        y_hats_mean[folds == i] = y_hat_mean
         y_hats_uncertainty[folds == i] = y_hat_uncertainty
 
-    return y_hats, y_hats_uncertainty
+    return y_hats, y_hats_mean, y_hats_uncertainty
 
 
 def calc_rmse(y: Union[np.ndarray, Tensor], y_hat: Union[np.ndarray, Tensor]) -> float:
