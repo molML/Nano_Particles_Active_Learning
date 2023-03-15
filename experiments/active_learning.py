@@ -15,7 +15,7 @@ from nano.eval import calc_rmse, evaluate_model
 from nano.acquisition import acquisition_function
 from nano.utils import load_data, augment_data, screen_predict
 from nano.vis import scatter, picks_pca
-from nano.models import XGBoostEnsemble, RFEnsemble, BayesianNN
+from nano.models import XGBoostEnsemble, BayesianNN
 import torch
 pd.set_option('display.max_columns', None)
 
@@ -70,7 +70,7 @@ if __name__ == '__main__':
                                                       ensemble_size=ENSEMBLE_SIZE,
                                                       augment=AUGMENT,
                                                       model='bnn')
-    # best_hypers_uptake = get_best_hyperparameters(f'results/uptake_model_{CYCLE}_hypers_bnn.csv')
+
     # Quickly plot predicted vs true to make sure our model makes sense
     scatter(y=uptake_y, y_hat=uptake_eval_results['y_hat'], uncertainty=uptake_eval_results['y_uncertainty'], labels=id)
 
@@ -133,10 +133,3 @@ if __name__ == '__main__':
     # Write picks to dataframe
     picks_df = screen_df.loc[screen_df['ID'].isin(picks)]
     picks_df.to_csv(f'results/picks_{CYCLE}.csv', index=False)
-
-    # TODO some ideas
-    # Relationship between each variable and the target
-    # Correlation between prediction error and uncertainty (insights into model calibration)
-
-
-
