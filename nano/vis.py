@@ -22,6 +22,7 @@ def scatter(y, y_hat, uncertainty=None, labels=None):
             ax.annotate(txt, (y[i], y_hat[i]))
     plt.xlabel("True")
     plt.ylabel("Predicted")
+    plt.figure(figsize=(20, 20))
     ax.set_aspect(abs(x1-x0)/abs(y1-y0))
 
     plt.show()
