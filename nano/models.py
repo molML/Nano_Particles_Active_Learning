@@ -26,11 +26,10 @@ from torch import tensor
 import pyro
 import pyro.distributions as dist
 from pyro.nn import PyroModule, PyroSample
-from pyro.infer.autoguide import AutoDiagonalNormal
+from pyro.infer.autoguide import AutoDiagonalNormal, AutoMultivariateNormal, init_to_mean
 from pyro.infer import SVI, Trace_ELBO, Predictive
 from tqdm.auto import trange, tqdm
 from xgboost import XGBRegressor
-from sklearn.ensemble import RandomForestRegressor
 from nano.utils import numpy_to_dataloader
 import warnings
 warnings.filterwarnings("ignore")
@@ -38,17 +37,22 @@ warnings.filterwarnings("ignore")
 
 class XGBoostEnsemble:
     """ Ensemble of n XGBoost regressors, seeded differently """
-    def __init__(self, ensemble_size: int = 10, **kwargs) -> None:
+    def __init__(self, ensemble_size: int = 10, log_transform: bool = True, **kwargs) -> None:
         self.models = {i: XGBRegressor(random_state=i, **kwargs) for i in range(ensemble_size)}
+        self.log_transform = log_transform
 
     def predict(self, x: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray):
         y_hat = np.array([model.predict(x) for i, model in self.models.items()])
+        if self.log_transform:
+            y_hat = 10 ** y_hat
         y_hat_mean = np.mean(y_hat, axis=0)
         y_hat_uncertainty = np.std(y_hat, axis=0)
 
         return y_hat, y_hat_mean, y_hat_uncertainty
 
     def train(self, x: np.ndarray, y: np.ndarray, **kwargs) -> None:
+        if self.log_transform:
+            y = np.log10(y)
         for i, m in self.models.items():
             self.models[i] = m.fit(x, y)
 
@@ -59,7 +63,8 @@ class XGBoostEnsemble:
 class BayesianNN:
     """ Bayesian Neural Network wrapper with train() and predict() functions. """
     def __init__(self, in_feats: int = 5, hidden_size: int = 32, n_layers: int = 3, activation: str = 'relu',
-                 seed: int = 42, lr=1e-3, to_gpu: bool = False, epochs: int = 10000):
+                 seed: int = 42, lr=1e-3, to_gpu: bool = False, epochs: int = 10000, weight_mu: float = 0.0,
+                 weight_sigma: float = 1.0, bias_mu: float = 0.0, bias_sigma: float = 1.0, log_transform: bool = True):
 
         # Define some vars and seed random state
         self.lr = lr
@@ -67,15 +72,18 @@ class BayesianNN:
         self.epochs = epochs
         self.epoch = 0
         self.seed = seed
+        self.log_transform = log_transform
         self.device = torch.device("cuda:0" if torch.cuda.is_available() and to_gpu else "cpu")
         pyro.set_rng_seed(seed)
 
         # Init model
         self.model = NN(in_feats=in_feats, hidden_size=hidden_size, activation=activation, n_layers=n_layers,
-                        to_gpu=to_gpu).to(self.device)
+                        to_gpu=to_gpu, weight_mu=weight_mu, weight_sigma=weight_sigma, bias_mu=bias_mu,
+                        bias_sigma=bias_sigma).to(self.device)
 
         # Init Guide model
-        self.guide = AutoDiagonalNormal(self.model)
+        self.guide = AutoMultivariateNormal(self.model)
+        # self.guide = AutoDiagonalNormal(self.model)
         self.guide = self.guide.to(self.device)
         # Init optimizer
         adam = pyro.optim.Adam({"lr": lr})
@@ -85,6 +93,8 @@ class BayesianNN:
     def train(self, x: np.ndarray, y: np.ndarray, epochs: int = None, batch_size: int = 256) -> None:
 
         # Convert numpy to Torch
+        if self.log_transform:
+            y = np.log10(y)
         data_loader = numpy_to_dataloader(x, y, batch_size=batch_size)
 
         # Training loop
@@ -114,48 +124,40 @@ class BayesianNN:
         # Construct predictive distribution
         predictive = Predictive(self.model, guide=self.guide, num_samples=num_samples, return_sites=("obs", "_RETURN"))
 
-        predictions = {'y_hat': {'pred': tensor([], device=self.device), 'mean': tensor([], device=self.device),
-                                 'std': tensor([], device=self.device)},
-                       'posterior': {'pred': tensor([], device=self.device), 'mean': tensor([], device=self.device),
-                                     'std': tensor([], device=self.device)}}
+        y_hat = tensor([], device=self.device)
+        y_hat_mu = tensor([], device=self.device)
+        y_hat_sigma = tensor([], device=self.device)
+        posterior = tensor([], device=self.device)
 
         for batch in tqdm(data_loader, 'Sampling predictive distribution'):
-
             x = batch[0].to(self.device)
 
             # Reshape if needed
             samples = predictive(x.unsqueeze(0) if len(x.size()) == 1 else x)
-            n = len(samples['obs'])
             if len(samples['_RETURN'].size()) == 1 and return_posterior:
-                samples['_RETURN'] = samples['_RETURN'].reshape([n, 1])
+                samples['_RETURN'] = samples['_RETURN'].reshape([len(samples['obs']), 1])
+
+            preds = 10 ** samples['obs'] if self.log_transform else samples['obs']
+            posts = 10 ** samples['_RETURN'] if self.log_transform else samples['_RETURN']
 
             # Add predictions from each batch to the dict
-            predictions['y_hat']['pred'] = torch.cat((predictions['y_hat']['pred'], samples['obs'].T), 0)
-            y_hat_mean = torch.mean(samples['obs'], dim=0)
-            predictions['y_hat']['mean'] = torch.cat((predictions['y_hat']['mean'], y_hat_mean), 0)
-            y_hat_std = torch.std(samples['obs'], dim=0)
-            predictions['y_hat']['std'] = torch.cat((predictions['y_hat']['std'], y_hat_std), 0)
-
-            if return_posterior:
-                # Add predictions from each batch to the dict
-                predictions['posterior']['pred'] = torch.cat((predictions['posterior']['pred'], samples['obs'].T), 0)
-                post_mean = torch.mean(samples['_RETURN'], dim=0)
-                predictions['posterior']['mean'] = torch.cat((predictions['posterior']['mean'], post_mean), 0)
-                post_std = torch.std(samples['_RETURN'], dim=0)
-                predictions['posterior']['std'] = torch.cat((predictions['posterior']['std'], post_std), 0)
+            y_hat = torch.cat((y_hat, preds.T), 0)
+            y_hat_mu = torch.cat((y_hat_mu, torch.mean(preds, dim=0)), 0)
+            y_hat_sigma = torch.cat((y_hat_sigma, torch.std(preds, dim=0)), 0)
+            posterior = torch.cat((posterior, posts.T), 0)
 
         if return_posterior:
-            return predictions['y_hat']['pred'], predictions['y_hat']['mean'], predictions['y_hat']['std'], \
-                   predictions['posterior']['pred'], predictions['posterior']['mean'], predictions['posterior']['std']
+            return y_hat, y_hat_mu, y_hat_sigma, posterior
 
-        return predictions['y_hat']['pred'], predictions['y_hat']['mean'], predictions['y_hat']['std']
+        return y_hat, y_hat_mu, y_hat_sigma
 
 
 class NN(PyroModule):
     """ Simple feedforward Bayesian NN. We use PyroSample to place a prior over the weight and bias parameters,
      instead of treating them as fixed learnable parameters. See http://pyro.ai/examples/bayesian_regression.html"""
     def __init__(self, in_feats=5, n_layers: int = 3, hidden_size: int = 32, activation: str = 'relu',
-                 to_gpu: bool = True, out_feats: int = 1) -> None:
+                 to_gpu: bool = True, out_feats: int = 1, weight_mu: float = 0.0, weight_sigma: float = 1.0,
+                 bias_mu: float = 0.0, bias_sigma: float = 1.0) -> None:
         super().__init__()
 
         # Define some vars
@@ -165,32 +167,32 @@ class NN(PyroModule):
         assert activation in ['relu', 'gelu', 'elu', 'leaky']
 
         self.fc0 = PyroModule[nn.Linear](nh0, nh)
-        self.fc0.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh, nh0]).to_event(2))
-        self.fc0.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh]).to_event(1))
+        self.fc0.weight = PyroSample(dist.Normal(weight_mu, tensor(weight_sigma, device=self.device)).expand([nh, nh0]).to_event(2))
+        self.fc0.bias = PyroSample(dist.Normal(bias_mu, tensor(bias_sigma, device=self.device)).expand([nh]).to_event(1))
 
         if n_layers > 1:
             self.fc1 = PyroModule[nn.Linear](nh, nh)
-            self.fc1.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh, nh]).to_event(2))
-            self.fc1.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh]).to_event(1))
+            self.fc1.weight = PyroSample(dist.Normal(weight_mu, tensor(weight_sigma, device=self.device)).expand([nh, nh]).to_event(2))
+            self.fc1.bias = PyroSample(dist.Normal(bias_mu, tensor(bias_sigma, device=self.device)).expand([nh]).to_event(1))
 
         if n_layers > 2:
             self.fc2 = PyroModule[nn.Linear](nh, nh)
-            self.fc2.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh, nh]).to_event(2))
-            self.fc2.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh]).to_event(1))
+            self.fc2.weight = PyroSample(dist.Normal(weight_mu, tensor(weight_sigma, device=self.device)).expand([nh, nh]).to_event(2))
+            self.fc2.bias = PyroSample(dist.Normal(bias_mu, tensor(bias_sigma, device=self.device)).expand([nh]).to_event(1))
 
         if n_layers > 3:
             self.fc3 = PyroModule[nn.Linear](nh, nh)
-            self.fc3.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh, nh]).to_event(2))
-            self.fc3.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh]).to_event(1))
+            self.fc3.weight = PyroSample(dist.Normal(weight_mu, tensor(weight_sigma, device=self.device)).expand([nh, nh]).to_event(2))
+            self.fc3.bias = PyroSample(dist.Normal(bias_mu, tensor(bias_sigma, device=self.device)).expand([nh]).to_event(1))
 
         if n_layers > 4:
             self.fc4 = PyroModule[nn.Linear](nh, nh)
-            self.fc4.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh, nh]).to_event(2))
-            self.fc4.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nh]).to_event(1))
+            self.fc4.weight = PyroSample(dist.Normal(weight_mu, tensor(weight_sigma, device=self.device)).expand([nh, nh]).to_event(2))
+            self.fc4.bias = PyroSample(dist.Normal(bias_mu, tensor(bias_sigma, device=self.device)).expand([nh]).to_event(1))
 
         self.out = PyroModule[nn.Linear](nh, nhout)
-        self.out.weight = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nhout, nh]).to_event(2))
-        self.out.bias = PyroSample(dist.Normal(0., tensor(1.0, device=self.device)).expand([nhout]).to_event(1))
+        self.out.weight = PyroSample(dist.Normal(weight_mu, tensor(weight_sigma, device=self.device)).expand([nhout, nh]).to_event(2))
+        self.out.bias = PyroSample(dist.Normal(bias_mu, tensor(bias_sigma, device=self.device)).expand([nhout]).to_event(1))
 
     def forward(self, x: tensor, y: tensor = None) -> tensor:
         # Predict the mean
