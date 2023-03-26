@@ -48,7 +48,7 @@ def load_data(cycle: int = 0, seed: int = 42, shuffle: bool = True, omit_unstabl
     return x, uptake_y, uptake_std, pdi_y, pdi_std, id, screen_x, screen_id
 
 
-def augment_data(x: np.ndarray, y: np.ndarray, std: np.array = None, n_times: int = 5, shuffle: bool = True,
+def augment_data(x: np.ndarray, y: np.ndarray, std: np.array, n_times: int = 5, shuffle: bool = True,
                  seed: int = 42, verbose: bool = False) -> (np.ndarray, np.ndarray):
 
     experimental_error = {'PLGA': 1.2490, 'PP-L': 1.2121, 'PP-COOH': 1.2359,  'PP-NH2': 1.2398,  'S/AS': 0}
@@ -62,20 +62,17 @@ def augment_data(x: np.ndarray, y: np.ndarray, std: np.array = None, n_times: in
 
     x_prime, y_prime = x, y
     for i in range(n_times-1):
-        augmentation = np.vstack([rng.normal(100, experimental_error['PLGA'], n) / 100,
-                                  rng.normal(100, experimental_error['PP-L'], n) / 100,
-                                  rng.normal(100, experimental_error['PP-COOH'], n) / 100,
-                                  rng.normal(100, experimental_error['PP-NH2'], n) / 100,
-                                  rng.normal(100, experimental_error['S/AS'], n) / 100]).T
+        x_augmentation = np.vstack([rng.normal(100, experimental_error['PLGA'], n) / 100,
+                                    rng.normal(100, experimental_error['PP-L'], n) / 100,
+                                    rng.normal(100, experimental_error['PP-COOH'], n) / 100,
+                                    rng.normal(100, experimental_error['PP-NH2'], n) / 100,
+                                    rng.normal(100, experimental_error['S/AS'], n) / 100]).T
+
+        y_augmentation = rng.normal(100, std) / 100
 
         # multiply the data with the augmentation matrix
-        x_prime = np.vstack((x_prime, x * augmentation))
-
-        if std is not None:
-            y_augmentation = rng.normal(100, std) / 100
-            y_prime = np.append(y_prime, y * y_augmentation)
-        else:
-            y_prime = np.append(y_prime, y)
+        x_prime = np.vstack((x_prime, x * x_augmentation))
+        y_prime = np.append(y_prime, y * y_augmentation)
 
     if shuffle:
         shuffling = rng.permutation(len(x_prime))
