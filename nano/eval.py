@@ -16,7 +16,7 @@ import pandas as pd
 
 
 def evaluate_model(x: np.ndarray, y: np.ndarray, id: np.ndarray, filename: str, hyperparameters: dict,
-                   bootstrap: int = 10, n_folds: int = 5, ensemble_size=10, augment=5, model: str = 'xgb'):
+                   bootstrap: int = 10, n_folds: int = 5, ensemble_size=10, augment=5, model: str = 'bnn'):
     """ Function to evaluate model performance through bootstrapped k-fold cross-validation"""
 
     # estimate mean model performance over b bootstraps
@@ -67,9 +67,9 @@ def evaluate_model(x: np.ndarray, y: np.ndarray, id: np.ndarray, filename: str, 
     return df, rmse
 
 
-def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ensemble_size: int = 10, seed: int = 42,
-                            augment: int = False, model: str = 'xgb', sampling_freq: int = 500, **kwargs) -> \
-        (np.ndarray, np.ndarray, np.ndarray):
+def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, std: np.array, n_folds: int = 5,
+                            ensemble_size: int = 10, seed: int = 42, augment: int = False, model: str = 'bnn',
+                            sampling_freq: int = 500, **kwargs) -> (np.ndarray, np.ndarray, np.ndarray):
     assert len(x) == len(y), f"x and y should contain the same number of samples x:{len(x)}, y:{len(y)}"
 
     # Define some variables
@@ -81,11 +81,11 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, n_folds: int = 5, ense
 
     for i in range(n_folds):
         # Subset train/test folds
-        x_train, y_train = x[folds != i], y[folds != i]
-        x_test, y_test = x[folds == i], y[folds == i]
+        x_train, y_train, y_train_std = x[folds != i], y[folds != i], std[folds != i]
+        x_test, y_test, y_test_std = x[folds == i], y[folds == i], std[folds == i]
         # Augment train data
         if augment:
-            x_train, y_train = augment_data(x_train, y_train, n_times=augment, seed=seed)
+            x_train, y_train = augment_data(x_train, y_train, y_train_std, n_times=augment, seed=seed)
 
         if model == 'xgb':
             m = XGBoostEnsemble(ensemble_size=ensemble_size, **kwargs)

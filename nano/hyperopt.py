@@ -17,18 +17,16 @@ from skopt import gp_minimize
 from skopt.space.space import Categorical, Real, Integer
 from skopt.utils import use_named_args
 from nano.eval import k_fold_cross_validation, calc_rmse
-from nano.hyperparameters import RF_hypers, XGBoost_hypers, BNN_hypers
+from nano.hyperparameters import XGBoost_hypers, BNN_hypers
 
 
-def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, log_file: str, n_calls: int = 50, min_init_points: int = 10,
-                             bootstrap: int = 10, n_folds: int = 10, ensemble_size: int = 10, augment: int = False,
-                             model="xgb") -> dict:
+def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, std: np.array, log_file: str = 'hypers_log.csv',
+                             n_calls: int = 50, min_init_points: int = 10, bootstrap: int = 10, n_folds: int = 10,
+                             ensemble_size: int = 10, augment: int = False, model="bnn") -> dict:
     """ Wrapper function to optimize hyperparameters on a dataset using bootstrapped k-fold cross-validation """
 
-    assert model in ['rf', 'bnn', 'xgb'], f"'model' must be 'rf', 'bnn', or 'xgb'"
+    assert model in ['bnn', 'xgb'], f"'model' must be 'bnn', or 'xgb'"
 
-    if model == 'rf':
-        hypers = RF_hypers
     if model == 'xgb':
         hypers = XGBoost_hypers
     if model == 'bnn':
@@ -36,7 +34,7 @@ def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, log_file: str, n_call
 
     # Optimize hyperparameters
     opt = BayesianOptimization()
-    opt.optimize(x, y, dimensions=hypers, n_calls=n_calls, min_init_points=min_init_points, log_file=log_file,
+    opt.optimize(x, y, std, dimensions=hypers, n_calls=n_calls, min_init_points=min_init_points, log_file=log_file,
                  bootstrap=bootstrap, n_folds=n_folds, ensemble_size=ensemble_size, augment=augment, model=model)
 
     best_hypers = get_best_hyperparameters(log_file)
@@ -52,9 +50,9 @@ class BayesianOptimization:
         self.history = []
         self.results = None
 
-    def optimize(self, x: np.ndarray, y: np.ndarray, dimensions: dict[str, list[Union[float, str, int]]],
+    def optimize(self, x: np.ndarray, y: np.ndarray, std: np.array, dimensions: dict[str, list[Union[float, str, int]]],
                  n_calls: int = 50, min_init_points: int = 10, log_file: str = None, n_folds: int = 10,
-                 bootstrap: int = 10, ensemble_size: int = 10, augment: int = False, model: str = 'xgb'):
+                 bootstrap: int = 10, ensemble_size: int = 10, augment: int = False, model: str = 'bnn'):
 
         # Convert dict of hypers to skopt search_space
         dimensions = {k: [v] if type(v) is not list else v for k, v in dimensions.items()}
@@ -79,8 +77,9 @@ class BayesianOptimization:
 
                     scores = []
                     for i in range(bootstrap):
-                        y_hat, _ = k_fold_cross_validation(x, y, n_folds=n_folds, seed=i, ensemble_size=ensemble_size,
-                                                           augment=augment, model=model, **hyperparameters)
+                        y_hat, _ = k_fold_cross_validation(x, y, std, n_folds=n_folds, seed=i,
+                                                           ensemble_size=ensemble_size, augment=augment, model=model,
+                                                           **hyperparameters)
                         scores.append(calc_rmse(y, y_hat))
 
                     score = sum(scores)/len(scores)
