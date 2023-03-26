@@ -18,14 +18,8 @@ XGBoost_hypers = {
         'eval_metric': ["rmse"]
     }
 
-RF_hypers = {'bootstrap': [True],
-             'max_depth': [10, 200],            # integer range from 10 - 200
-             'max_features': ['auto', 'sqrt'],  # categorical
-             'min_samples_leaf': [1, 5],        # integer range from 1 - 5
-             'min_samples_split': [2, 10],      # integer range from 2 - 10
-             'n_estimators': [50, 2000]}        # integer range from 50 - 2000
 
-BNN_hypers = {'lr': [1e-3, 1e-4, 1e-5],         # categorical
-              'hidden_size': [16, 32, 64],      # categorical
-              'epochs': [5000, 10000, 20000],   # categorical
-              'n_layers': [2, 5]}               # integer range from 2 - 5
+BNN_hypers = {'lr': [1e-3, 1e-4, 1e-5],              # categorical
+              'hidden_size': [16, 32, 64],           # categorical
+              'epochs': [1000, 5000, 10000, 20000],  # categorical
+              'n_layers': [2, 5]}                    # integer range from 2 - 5
