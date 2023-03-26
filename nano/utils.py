@@ -48,8 +48,8 @@ def load_data(cycle: int = 0, seed: int = 42, shuffle: bool = True, omit_unstabl
     return x, uptake_y, uptake_std, pdi_y, pdi_std, id, screen_x, screen_id
 
 
-def augment_data(x: np.ndarray, y: np.ndarray, n_times: int = 5, shuffle: bool = True, seed: int = 42,
-                 verbose: bool = False) -> (np.ndarray, np.ndarray):
+def augment_data(x: np.ndarray, y: np.ndarray, std: np.array = None, n_times: int = 5, shuffle: bool = True,
+                 seed: int = 42, verbose: bool = False) -> (np.ndarray, np.ndarray):
 
     experimental_error = {'PLGA': 1.2490, 'PP-L': 1.2121, 'PP-COOH': 1.2359,  'PP-NH2': 1.2398,  'S/AS': 0}
 
@@ -60,7 +60,6 @@ def augment_data(x: np.ndarray, y: np.ndarray, n_times: int = 5, shuffle: bool =
     if verbose:
         print(f"Augmenting {n_times} times; {n} original values + {n*(n_times-1)} ({n}x{(n_times-1)}) augmented values")
 
-    # TODO I currently do not augment the labels.
     x_prime, y_prime = x, y
     for i in range(n_times-1):
         augmentation = np.vstack([rng.normal(100, experimental_error['PLGA'], n) / 100,
@@ -71,7 +70,12 @@ def augment_data(x: np.ndarray, y: np.ndarray, n_times: int = 5, shuffle: bool =
 
         # multiply the data with the augmentation matrix
         x_prime = np.vstack((x_prime, x * augmentation))
-        y_prime = np.append(y_prime, y)
+
+        if std is not None:
+            y_augmentation = rng.normal(100, std) / 100
+            y_prime = np.append(y_prime, y * y_augmentation)
+        else:
+            y_prime = np.append(y_prime, y)
 
     if shuffle:
         shuffling = rng.permutation(len(x_prime))
