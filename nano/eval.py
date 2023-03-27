@@ -104,6 +104,8 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, std: np.array, n_folds
             # Delete the NN to free memory
             try:
                 del m.model
+                del m.guide
+                del m.svi
                 del m
                 torch.cuda.empty_cache()
             except:
