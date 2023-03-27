@@ -63,8 +63,8 @@ class XGBoostEnsemble:
 class BayesianNN:
     """ Bayesian Neural Network wrapper with train() and predict() functions. """
     def __init__(self, in_feats: int = 5, hidden_size: int = 32, n_layers: int = 3, activation: str = 'relu',
-                 seed: int = 42, lr=1e-3, to_gpu: bool = False, epochs: int = 10000, weight_mu: float = 0.0,
-                 weight_sigma: float = 1.0, bias_mu: float = 0.0, bias_sigma: float = 1.0, log_transform: bool = True):
+                 seed: int = 42, lr=1e-3, to_gpu: bool = True, epochs: int = 10000, weight_mu: float = 0.0,
+                 weight_sigma: float = 1.0, bias_mu: float = 0.0, bias_sigma: float = 1.0, log_transform: bool = False):
 
         # Define some vars and seed random state
         self.lr = lr
@@ -147,9 +147,9 @@ class BayesianNN:
             posterior = torch.cat((posterior, posts.T), 0)
 
         if return_posterior:
-            return y_hat, y_hat_mu, y_hat_sigma, posterior
+            return y_hat.cpu(), y_hat_mu.cpu(), y_hat_sigma.cpu(), posterior.cpu()
 
-        return y_hat, y_hat_mu, y_hat_sigma
+        return y_hat.cpu(), y_hat_mu.cpu(), y_hat_sigma.cpu()
 
 
 class NN(PyroModule):
