@@ -15,6 +15,7 @@ from tqdm import tqdm
 def generate_screen_data(size: int = 100000, seed: int = 42) -> np.ndarray:
 
     rng = np.random.default_rng(seed)
+    size_extra = int(size * 1.2)
 
     experimental_error = {'PLGA': 1.2490, 'PP-L': 1.2121, 'PP-COOH': 1.2359, 'PP-NH2': 1.2398, 'S/AS': 100}  # TODO what do we do with S/AS?
     bounds = {k: (((100 - j) / 100), ((100 + j) / 100)) for k, j in experimental_error.items()}
@@ -28,8 +29,8 @@ def generate_screen_data(size: int = 100000, seed: int = 42) -> np.ndarray:
 
     # generate formulations. We use a dirichlet distribution to make sure all PLGA, PP-L, PP-COOH, and PP-NH2 ratios
     # add up to 1.
-    x = rng.dirichlet(np.ones(4), size=size)
-    x_s_as = np.array([np.array(s_as)[rng.integers(0, len(s_as), size=size)]]).T
+    x = rng.dirichlet(np.ones(4), size=size_extra)
+    x_s_as = np.array([np.array(s_as)[rng.integers(0, len(s_as), size=size_extra)]]).T
 
     # Add S/AS column to the rest of the data
     x = np.append(x, x_s_as, axis=1)
@@ -64,6 +65,9 @@ def generate_screen_data(size: int = 100000, seed: int = 42) -> np.ndarray:
 
     # remove the found overlapping samples from x
     x = x[[i for i in range(len(x)) if i not in within_error_range]]
+
+    # Remove the excess
+    x = x[range(size)]
 
     return x
 
