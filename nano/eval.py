@@ -15,19 +15,18 @@ from math import ceil
 import pandas as pd
 
 
-def evaluate_model(x: np.ndarray, y: np.ndarray, id: np.ndarray, filename: str, hyperparameters: dict,
-                   bootstrap: int = 10, n_folds: int = 5, ensemble_size=10, augment=5, model: str = 'bnn'):
+def evaluate_model(x: np.ndarray, y: np.ndarray, std: np.ndarray, id: np.ndarray, filename: str, hyperparameters: dict,
+                   bootstrap: int = 10, n_folds: int = 5, ensemble_size=1, augment=5, model: str = 'bnn'):
     """ Function to evaluate model performance through bootstrapped k-fold cross-validation"""
 
     # estimate mean model performance over b bootstraps
     y_hats, bottom_5, upper_95, y_hats_uncertainty = [], [], [], []
     for b in range(bootstrap):
         # every "bootstrap" we have different CV splits
-        y_hat, y_hat_mean, y_hat_uncertainty = k_fold_cross_validation(x, y, seed=b,
-                                                           n_folds=n_folds,
-                                                           ensemble_size=ensemble_size,
-                                                           augment=augment, model=model,
-                                                           **hyperparameters)
+        y_hat, y_hat_mean, y_hat_uncertainty = k_fold_cross_validation(x, y, std, seed=b, n_folds=n_folds,
+                                                                       ensemble_size=ensemble_size,
+                                                                       augment=augment, model=model,
+                                                                       **hyperparameters)
 
         # Calculate the 90% interval. We use 'ceil' to prevent errors with smaller ensemble sizes. Note that for
         # small ensemble sizes/ sampling frequencies, this 90% CI becomes meaningless
@@ -68,7 +67,7 @@ def evaluate_model(x: np.ndarray, y: np.ndarray, id: np.ndarray, filename: str, 
 
 
 def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, std: np.array, n_folds: int = 5,
-                            ensemble_size: int = 10, seed: int = 42, augment: int = False, model: str = 'bnn',
+                            ensemble_size: int = 1, seed: int = 42, augment: int = False, model: str = 'bnn',
                             sampling_freq: int = 500, **kwargs) -> (np.ndarray, np.ndarray, np.ndarray):
     assert len(x) == len(y), f"x and y should contain the same number of samples x:{len(x)}, y:{len(y)}"
 
