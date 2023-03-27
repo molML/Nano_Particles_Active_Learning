@@ -13,6 +13,7 @@ Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 
 import numpy as np
 from typing import Union
+import itertools
 from skopt import gp_minimize
 from skopt.space.space import Categorical, Real, Integer
 from skopt.utils import use_named_args
@@ -21,8 +22,9 @@ from nano.hyperparameters import XGBoost_hypers, BNN_hypers
 
 
 def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, std: np.array, log_file: str = 'hypers_log.csv',
-                             n_calls: int = 50, min_init_points: int = 10, bootstrap: int = 10, n_folds: int = 10,
-                             ensemble_size: int = 10, augment: int = False, model="bnn") -> dict:
+                             n_calls: int = 50, min_init_points: int = 10, bootstrap: int = 5, n_folds: int = 5,
+                             ensemble_size: int = 1, augment: int = False, model="bnn",
+                             method: str = 'grid_search') -> dict:
     """ Wrapper function to optimize hyperparameters on a dataset using bootstrapped k-fold cross-validation """
 
     assert model in ['bnn', 'xgb'], f"'model' must be 'bnn', or 'xgb'"
@@ -32,14 +34,37 @@ def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, std: np.array, log_fi
     if model == 'bnn':
         hypers = BNN_hypers
 
-    # Optimize hyperparameters
-    opt = BayesianOptimization()
-    opt.optimize(x, y, std, dimensions=hypers, n_calls=n_calls, min_init_points=min_init_points, log_file=log_file,
-                 bootstrap=bootstrap, n_folds=n_folds, ensemble_size=ensemble_size, augment=augment, model=model)
+    if method == 'bayesian':
+        # Optimize hyperparameters
+        opt = BayesianOptimization()
+        opt.optimize(x, y, std, dimensions=hypers, n_calls=n_calls, min_init_points=min_init_points, log_file=log_file,
+                     bootstrap=bootstrap, n_folds=n_folds, ensemble_size=ensemble_size, augment=augment, model=model)
+    elif method == 'grid_search':
+        grid_search(x, y, std, dimensions=hypers, log_file=log_file, bootstrap=bootstrap, n_folds=n_folds,
+                    ensemble_size=ensemble_size, augment=augment, model=model)
 
     best_hypers = get_best_hyperparameters(log_file)
 
     return best_hypers
+
+
+def grid_search(x, y, std, dimensions, log_file: str, bootstrap: int = 5, n_folds: int = 5, ensemble_size: int = 10,
+                augment: int = 5, model: str = 'bnn'):
+
+    all_hypers = [dict(zip(dimensions.keys(), v)) for v in itertools.product(*dimensions.values())]
+    for hypers in all_hypers:
+        print(f"Current hyperparameters: {hypers}")
+        scores = []
+        for i in range(bootstrap):
+            y_hats, y_hats_mean, y_hats_uncertainty = k_fold_cross_validation(x, y, std, n_folds=n_folds, seed=i,
+                                                                              ensemble_size=ensemble_size,
+                                                                              augment=augment, model=model, **hypers)
+            scores.append(calc_rmse(y, y_hats_mean))
+
+        score = sum(scores) / len(scores)
+
+        with open(log_file, 'a') as f:
+            f.write(f"{score},{hypers}\n")
 
 
 class BayesianOptimization:
@@ -50,9 +75,10 @@ class BayesianOptimization:
         self.history = []
         self.results = None
 
+    # dimensions= XGBoost_hypers
     def optimize(self, x: np.ndarray, y: np.ndarray, std: np.array, dimensions: dict[str, list[Union[float, str, int]]],
-                 n_calls: int = 50, min_init_points: int = 10, log_file: str = None, n_folds: int = 10,
-                 bootstrap: int = 10, ensemble_size: int = 10, augment: int = False, model: str = 'bnn'):
+                 n_calls: int = 100, min_init_points: int = 10, log_file: str = None, n_folds: int = 5,
+                 bootstrap: int = 5, ensemble_size: int = 1, augment: int = False, model: str = 'bnn'):
 
         # Convert dict of hypers to skopt search_space
         dimensions = {k: [v] if type(v) is not list else v for k, v in dimensions.items()}
@@ -65,7 +91,6 @@ class BayesianOptimization:
         # Objective function for Bayesian optimization
         @use_named_args(dimensions=dimensions)
         def objective(**hyperparameters) -> float:
-
             # If the same set of hypers gets selected twice (which can happen in the first few runs), skip it
             if hyperparameters in [j for i, j in self.history]:
                 score = [i for i, j in self.history if j == hyperparameters][0]
@@ -77,10 +102,12 @@ class BayesianOptimization:
 
                     scores = []
                     for i in range(bootstrap):
-                        y_hat, _ = k_fold_cross_validation(x, y, std, n_folds=n_folds, seed=i,
-                                                           ensemble_size=ensemble_size, augment=augment, model=model,
-                                                           **hyperparameters)
-                        scores.append(calc_rmse(y, y_hat))
+                        # break
+                        y_hats, y_hats_mu, y_hats_sigma = k_fold_cross_validation(x, y, std, n_folds=n_folds,  seed=i,
+                                                                                  ensemble_size=ensemble_size,
+                                                                                  augment=augment, model=model,
+                                                                                  **hyperparameters)
+                        scores.append(calc_rmse(y, y_hats_mu))
 
                     score = sum(scores)/len(scores)
 
