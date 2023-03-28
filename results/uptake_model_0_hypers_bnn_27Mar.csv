@@ -1,0 +1,8 @@
+2.602919864810627,{'lr': 0.001, 'hidden_size': 16, 'epochs': 20000, 'n_layers': 3}
+2.687731174889019,{'lr': 0.001, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 3}
+error,{'lr': 0.001, 'hidden_size': 64, 'epochs': 20000, 'n_layers': 3}
+2.5424510961951503,{'lr': 0.0001, 'hidden_size': 16, 'epochs': 20000, 'n_layers': 3}
+2.6224004749306262,{'lr': 0.0001, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 3}
+2.9644353751115973,{'lr': 0.0001, 'hidden_size': 64, 'epochs': 20000, 'n_layers': 3}
+3.3023148848099546,{'lr': 1e-05, 'hidden_size': 16, 'epochs': 20000, 'n_layers': 3}
+3.4561168147664985,{'lr': 1e-05, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 3}
