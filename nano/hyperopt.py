@@ -10,10 +10,13 @@ Code for Bayesian hyperparamter optimization using bootstrapped n-fold cross-val
 Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 
 """
+import warnings
 
 import numpy as np
 from typing import Union
 import itertools
+
+import pandas as pd
 from skopt import gp_minimize
 from skopt.space.space import Categorical, Real, Integer
 from skopt.utils import use_named_args
@@ -53,18 +56,28 @@ def grid_search(x, y, std, dimensions, log_file: str, bootstrap: int = 5, n_fold
 
     all_hypers = [dict(zip(dimensions.keys(), v)) for v in itertools.product(*dimensions.values())]
     for hypers in all_hypers:
+
         print(f"Current hyperparameters: {hypers}")
-        scores = []
-        for i in range(bootstrap):
-            y_hats, y_hats_mean, y_hats_uncertainty = k_fold_cross_validation(x, y, std, n_folds=n_folds, seed=i,
-                                                                              ensemble_size=ensemble_size,
-                                                                              augment=augment, model=model, **hypers)
-            scores.append(calc_rmse(y, y_hats_mean))
+        with open(log_file) as f:
+            previous_hypers = [eval(','.join(l.strip().split(',')[1:])) for l in f.readlines()]
+        if hypers not in previous_hypers:
+            scores = []
+            for i in range(bootstrap):
+                try:
+                    y_hats, y_hats_mean, y_hats_uncertainty = k_fold_cross_validation(x, y, std, n_folds=n_folds, seed=i,
+                                                                                      ensemble_size=ensemble_size,
+                                                                                      augment=augment, model=model, **hypers)
+                    scores.append(calc_rmse(y, y_hats_mean))
+                except:
+                    warnings.warn(f'Failed run {i} for {hypers}')
 
-        score = sum(scores) / len(scores)
+            if len(scores) == 0:
+                score = 'error'
+            else:
+                score = sum(scores) / len(scores)
 
-        with open(log_file, 'a') as f:
-            f.write(f"{score},{hypers}\n")
+            with open(log_file, 'a') as f:
+                f.write(f"{score},{hypers}\n")
 
 
 class BayesianOptimization:
@@ -118,6 +131,8 @@ class BayesianOptimization:
                 except:
                     print(">>  Failed")
                     score = self.best_score + 1
+            if score > 100000:
+                score = self.best_score + 1
 
             # append to history and update best score if needed
             self.history.append((score, hyperparameters))
