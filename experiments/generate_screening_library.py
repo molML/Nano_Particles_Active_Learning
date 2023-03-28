@@ -17,10 +17,10 @@ def generate_screen_data(size: int = 100000, seed: int = 42) -> np.ndarray:
     rng = np.random.default_rng(seed)
     size_extra = int(size * 1.2)
 
-    experimental_error = {'PLGA': 1.2490, 'PP-L': 1.2121, 'PP-COOH': 1.2359, 'PP-NH2': 1.2398, 'S/AS': 100}  # TODO what do we do with S/AS?
+    experimental_error = {'PLGA': 1.2490, 'PP-L': 1.2121, 'PP-COOH': 1.2359, 'PP-NH2': 1.2398, 'S/AS': 100}
     bounds = {k: (((100 - j) / 100), ((100 + j) / 100)) for k, j in experimental_error.items()}
 
-    s_as = [0.10, 0.15, 0.20, 0.25, 0.30]
+    s_as = [0.10, 0.15, 0.20, 0.25]
     exp_lims = {'PLGA': [0, 0.7],
                 'PP-L': [0, 1],
                 'PP-COOH': [0, 1],
