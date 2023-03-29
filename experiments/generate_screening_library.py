@@ -36,10 +36,10 @@ def generate_screen_data(size: int = 100000, seed: int = 42) -> np.ndarray:
     x = np.append(x, x_s_as, axis=1)
 
     # filter formulations based on some sensible experimental limitations. Formulations should be within these limits
-    x = x[np.where((x[:, 0] > exp_lims['PLGA'][0])      & (x[:, 0] < exp_lims['PLGA'][1]) &
-                   (x[:, 1] > exp_lims['PP-L'][0])      & (x[:, 1] < exp_lims['PP-L'][1]) &
-                   (x[:, 2] > exp_lims['PP-COOH'][0])   & (x[:, 2] < exp_lims['PP-COOH'][1]) &
-                   (x[:, 3] > exp_lims['PP-NH2'][0])    & (x[:, 3] < exp_lims['PP-NH2'][1]))]
+    x = x[np.where((x[:, 0] >= exp_lims['PLGA'][0])      & (x[:, 0] < exp_lims['PLGA'][1]) &
+                   (x[:, 1] >= exp_lims['PP-L'][0])      & (x[:, 1] < exp_lims['PP-L'][1]) &
+                   (x[:, 2] >= exp_lims['PP-COOH'][0])   & (x[:, 2] < exp_lims['PP-COOH'][1]) &
+                   (x[:, 3] >= exp_lims['PP-NH2'][0])    & (x[:, 3] < exp_lims['PP-NH2'][1]))]
 
     # the error for every variable should not overlap
     within_error_range = []
