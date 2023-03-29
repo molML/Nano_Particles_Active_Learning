@@ -6,6 +6,7 @@ experimental limits and are not allowed to overlap in experimental error.
 Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 
 """
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -15,7 +16,7 @@ from tqdm import tqdm
 def generate_screen_data(size: int = 100000, seed: int = 42) -> np.ndarray:
 
     rng = np.random.default_rng(seed)
-    size_extra = int(size * 1.2)
+    size_extra = int(size * 1.5)  # we make some extra to account for the ones that will be filtered out
 
     experimental_error = {'PLGA': 1.2490, 'PP-L': 1.2121, 'PP-COOH': 1.2359, 'PP-NH2': 1.2398, 'S/AS': 100}
     bounds = {k: (((100 - j) / 100), ((100 + j) / 100)) for k, j in experimental_error.items()}
@@ -30,9 +31,23 @@ def generate_screen_data(size: int = 100000, seed: int = 42) -> np.ndarray:
     # generate formulations. We use a dirichlet distribution to make sure all PLGA, PP-L, PP-COOH, and PP-NH2 ratios
     # add up to 1.
     x = rng.dirichlet(np.ones(4), size=size_extra)
-    x_s_as = np.array([np.array(s_as)[rng.integers(0, len(s_as), size=size_extra)]]).T
+
+    # We check for samples that are lower than 0.06 and turn them into 0 (because of the pump's carryover volume)
+    # The residuals from the samples < 0.06 will get moved to a random other variable (that is not 0).
+    # Looping over the data multiple times is a bit of a duct-tape engineering solution, but only takes a few seconds.
+    for _ in range(4):
+        for formulation in x:
+            for i, value in enumerate(formulation):
+                if value < 0.06:
+                    other_idxs = [j for j in range(4) if j != i]  # get the remaining indices
+                    other_idxs = [j for j in other_idxs if formulation[j] != 0]  # make sure we're not selecting 0s
+                    if len(other_idxs) > 0:  # if there are any, make the chosen index 0 and add its value elsewhere
+                        formulation[i] = 0
+                        random_idx_to_add_to = other_idxs[rng.integers(0, len(other_idxs), 1)[0]]
+                        formulation[random_idx_to_add_to] += value
 
     # Add S/AS column to the rest of the data
+    x_s_as = np.array([np.array(s_as)[rng.integers(0, len(s_as), size=size_extra)]]).T
     x = np.append(x, x_s_as, axis=1)
 
     # filter formulations based on some sensible experimental limitations. Formulations should be within these limits
@@ -66,15 +81,18 @@ def generate_screen_data(size: int = 100000, seed: int = 42) -> np.ndarray:
     # remove the found overlapping samples from x
     x = x[[i for i in range(len(x)) if i not in within_error_range]]
 
-    # Remove the excess
-    x = x[range(size)]
+    # Remove the excess if there is any
+    if len(x) > size:
+        x = x[range(size)]
+    else:
+        warnings.warn(f'Could not generate {size} formulations, generated {len(x)} instead')
 
     return x
 
 
 if __name__ == '__main__':
 
-    x = generate_screen_data(size=100000, seed=42)  # 1202 formulations were removed due to error overlaps
+    x = generate_screen_data(size=100000, seed=42)
 
     df = pd.DataFrame(x, columns=['PLGA', 'PP-L', 'PP-COOH', 'PP-NH2', 'S/AS'])
     df['ID'] = [f"screen_{i}" for i in range(len(df))]
