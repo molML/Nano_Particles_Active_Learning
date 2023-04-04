@@ -23,9 +23,8 @@ pd.set_option('display.max_columns', None)
 
 # Cycle
 CYCLE = 0
-DATE = '27Mar'
+DATE = '4Apr'
 # Number of tries during Bayesian hyperparameter optimization.
-HYPEROPT_CALLS_BNN = 100
 HYPEROPT_CALLS_XGB = 500
 # Number of times to bootstrap all k-fold cross-validation runs. Creates b differently split k-folds .
 BOOTSTRAP = 5
@@ -45,16 +44,13 @@ if __name__ == '__main__':
 
     """ Load data ------------------------------------------------ """
 
-    x, uptake_y, uptake_std, pdi_y, pdi_std, size_y, size_std, id, screen_x, screen_id = load_data(cycle=CYCLE,
-                                                                                                   shuffle=True,
-                                                                                                   omit_unstable=True)
+    x, uptake_y, uptake_std, id = load_data(cycle=CYCLE, set='uptake', shuffle=True, omit_unstable=True)
 
     """ Uptake model ------------------------------------------------ """
 
     # Hyperparameter optimization
     best_hypers_uptake = optimize_hyperparameters(x=x, y=uptake_y, std=uptake_std,
                                                   log_file=f'results/uptake_model_{CYCLE}_hypers_bnn_{DATE}.csv',
-                                                  n_calls=HYPEROPT_CALLS_BNN,
                                                   bootstrap=BOOTSTRAP,
                                                   n_folds=N_FOLDS,
                                                   augment=AUGMENT,
@@ -82,9 +78,7 @@ if __name__ == '__main__':
     """ PdI model ------------------------------------------------ """
 
     # Load data, we now include unstable particles to learn from them
-    x, uptake_y, uptake_std, pdi_y, pdi_std, size_y, size_std, id, screen_x, screen_id = load_data(cycle=CYCLE,
-                                                                                                   shuffle=True,
-                                                                                                   omit_unstable=False)
+    x, pdi_y, pdi_std, id = load_data(cycle=CYCLE, set='pdi', shuffle=True, omit_unstable=False)
 
     # hyperparameter optimization
     best_hypers_pdi = optimize_hyperparameters(x=x, y=pdi_y, std=pdi_std,
@@ -118,9 +112,7 @@ if __name__ == '__main__':
     """ Size model ------------------------------------------------ """
 
     # Load data, we now include unstable particles to learn from them
-    x, uptake_y, uptake_std, pdi_y, pdi_std, size_y, size_std, id, screen_x, screen_id = load_data(cycle=CYCLE,
-                                                                                                   shuffle=True,
-                                                                                                   omit_unstable=False)
+    x, size_y, size_std, id = load_data(cycle=CYCLE, set='size', shuffle=True, omit_unstable=False)
 
     # hyperparameter optimization
     best_hypers_size = optimize_hyperparameters(x=x, y=size_y, std=size_std,
@@ -150,8 +142,9 @@ if __name__ == '__main__':
     size_model.train(size_x_augmented, size_y_augmented)
     torch.save(size_model, f'models/size_model_{CYCLE}_xgb_{DATE}.pt')
 
-
     """ Screen ------------------------------------------------ """
+
+    screen_x, screen_id = load_data(cycle=CYCLE, set='screen', shuffle=True, omit_unstable=False)
 
     uptake_model = torch.load(f'models/uptake_model_{CYCLE}_bnn_{DATE}.pt')
     pdi_model = torch.load(f'models/pdi_model_{CYCLE}_xgb_{DATE}.pt')
