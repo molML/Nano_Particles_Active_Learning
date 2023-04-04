@@ -84,23 +84,26 @@ def augment_data(x: np.ndarray, y: np.ndarray, std: np.array, n_times: int = 5, 
     return x_prime, y_prime
 
 
-def screen_predict(screen_x, screen_id, uptake_model, pdi_model, filename: str):
+def screen_predict(screen_x, screen_id, uptake_model, pdi_model, size_model, filename: str):
     """ Helper function to perform predictions and store them in the correct format for screening"""
     # Perform predictions
     y_hat_uptake, y_hat_mean_uptake, y_hat_uncertainty_uptake = uptake_model.predict(screen_x)
     y_hat_pdi, y_hat_mean_pdi, y_hat_uncertainty_pdi = pdi_model.predict(screen_x)
+    y_hat_size, y_hat_mean_size, y_hat_uncertainty_size = size_model.predict(screen_x)
 
     # get the 90% CI
-    y_hat_05 = y_hat_uptake.kthvalue(int(y_hat_uptake.shape[1] * 0.05), dim=1)[0]
-    y_hat_95 = y_hat_uptake.kthvalue(int(y_hat_uptake.shape[1] * 0.95), dim=1)[0]
+    y_hat_uptake_05 = y_hat_uptake.kthvalue(int(y_hat_uptake.shape[1] * 0.05), dim=1)[0]
+    y_hat_uptake_95 = y_hat_uptake.kthvalue(int(y_hat_uptake.shape[1] * 0.95), dim=1)[0]
 
     screen_df = pd.DataFrame({'ID': screen_id,
                               'y_hat_uptake': y_hat_mean_uptake,
                               'y_uncertainty_uptake': y_hat_uncertainty_uptake,
-                              'y_hat_uptake_CI05%': y_hat_05,
-                              'y_hat_uptake_CI95%': y_hat_95,
+                              'y_hat_uptake_CI05%': y_hat_uptake_05,
+                              'y_hat_uptake_CI95%': y_hat_uptake_95,
                               'y_hat_pdi': y_hat_mean_pdi,
                               'y_uncertainty_pdi': y_hat_uncertainty_pdi,
+                              'y_hat_size': y_hat_mean_size,
+                              'y_uncertainty_size': y_hat_uncertainty_size,
                               'x_PLGA': screen_x[:, 0],
                               'x_PP-L': screen_x[:, 1],
                               'x_PP-COOH': screen_x[:, 2],
