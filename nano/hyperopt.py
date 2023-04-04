@@ -10,6 +10,7 @@ Code for Bayesian hyperparamter optimization using bootstrapped n-fold cross-val
 Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 
 """
+import os.path
 import warnings
 
 import numpy as np
@@ -58,8 +59,10 @@ def grid_search(x, y, std, dimensions, log_file: str, bootstrap: int = 5, n_fold
     for hypers in all_hypers:
 
         print(f"Current hyperparameters: {hypers}")
-        with open(log_file) as f:
-            previous_hypers = [eval(','.join(l.strip().split(',')[1:])) for l in f.readlines()]
+        previous_hypers = []
+        if os.path.exists(log_file):
+            with open(log_file) as f:
+                previous_hypers = [eval(','.join(l.strip().split(',')[1:])) for l in f.readlines()]
         if hypers not in previous_hypers:
             scores = []
             for i in range(bootstrap):
