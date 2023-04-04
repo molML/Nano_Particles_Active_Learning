@@ -45,9 +45,9 @@ if __name__ == '__main__':
 
     """ Load data ------------------------------------------------ """
 
-    x, uptake_y, uptake_std, pdi_y, pdi_std, id, screen_x, screen_id = load_data(cycle=CYCLE,
-                                                                                 shuffle=True,
-                                                                                 omit_unstable=True)
+    x, uptake_y, uptake_std, pdi_y, pdi_std, size_y, size_std, id, screen_x, screen_id = load_data(cycle=CYCLE,
+                                                                                                   shuffle=True,
+                                                                                                   omit_unstable=True)
 
     """ Uptake model ------------------------------------------------ """
 
@@ -82,9 +82,9 @@ if __name__ == '__main__':
     """ PdI model ------------------------------------------------ """
 
     # Load data, we now include unstable particles to learn from them
-    x, uptake_y, uptake_std, pdi_y, pdi_std, id, screen_x, screen_id = load_data(cycle=CYCLE,
-                                                                                 shuffle=True,
-                                                                                 omit_unstable=False)
+    x, uptake_y, uptake_std, pdi_y, pdi_std, size_y, size_std, id, screen_x, screen_id = load_data(cycle=CYCLE,
+                                                                                                   shuffle=True,
+                                                                                                   omit_unstable=False)
 
     # hyperparameter optimization
     best_hypers_pdi = optimize_hyperparameters(x=x, y=pdi_y, std=pdi_std,
@@ -114,12 +114,50 @@ if __name__ == '__main__':
     pdi_model.train(pdi_x_augmented, pdi_y_augmented)
     torch.save(pdi_model, f'models/pdi_model_{CYCLE}_xgb_{DATE}.pt')
 
+
+    """ Size model ------------------------------------------------ """
+
+    # Load data, we now include unstable particles to learn from them
+    x, uptake_y, uptake_std, pdi_y, pdi_std, size_y, size_std, id, screen_x, screen_id = load_data(cycle=CYCLE,
+                                                                                                   shuffle=True,
+                                                                                                   omit_unstable=False)
+
+    # hyperparameter optimization
+    best_hypers_size = optimize_hyperparameters(x=x, y=size_y, std=size_std,
+                                               log_file=f'results/size_model_{CYCLE}_hypers_xgb_{DATE}.csv',
+                                               n_calls=HYPEROPT_CALLS_XGB,
+                                               bootstrap=BOOTSTRAP,
+                                               n_folds=N_FOLDS,
+                                               augment=AUGMENT,
+                                               model='xgb',
+                                               method='bayesian')
+
+    # Evaluate model performance with bootstrapped k-fold cross-validation
+    size_eval_results, size_rmse = evaluate_model(x=x, y=size_y, std=size_std, id=id,
+                                                filename=f'results/size_model_{CYCLE}_eval_xgb_{DATE}.csv',
+                                                hyperparameters=best_hypers_size,
+                                                bootstrap=BOOTSTRAP,
+                                                n_folds=N_FOLDS,
+                                                augment=AUGMENT,
+                                                model='xgb')
+
+    # Quickly plot predicted vs true
+    scatter(y=size_y, y_hat=size_eval_results['y_hat'], uncertainty=size_eval_results['y_uncertainty'], labels=id)
+
+    # Train final model with augmented train data
+    size_x_augmented, size_y_augmented = augment_data(x, size_y, size_std, n_times=AUGMENT)
+    size_model = XGBoostEnsemble(ensemble_size=1, **best_hypers_size)  # we use a single xgb model
+    size_model.train(size_x_augmented, size_y_augmented)
+    torch.save(size_model, f'models/size_model_{CYCLE}_xgb_{DATE}.pt')
+
+
     """ Screen ------------------------------------------------ """
 
     uptake_model = torch.load(f'models/uptake_model_{CYCLE}_bnn_{DATE}.pt')
     pdi_model = torch.load(f'models/pdi_model_{CYCLE}_xgb_{DATE}.pt')
 
-    screen_df = screen_predict(screen_x, screen_id, uptake_model, pdi_model, f'results/screen_predictions_{CYCLE}.csv')
+    screen_df = screen_predict(screen_x, screen_id, uptake_model, pdi_model,
+                               f'results/screen_predictions_{CYCLE}_{DATE}.csv')
 
     """ Sample acquisition ------------------------------------ """
 
