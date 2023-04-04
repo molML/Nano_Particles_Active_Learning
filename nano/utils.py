@@ -36,6 +36,8 @@ def load_data(cycle: int = 0, seed: int = 42, shuffle: bool = True, omit_unstabl
     uptake_std = np.array(data['Uptake_stdev'])
     pdi_y = np.array(data['PDI'])
     pdi_std = np.array(data['PDI_stdev'])
+    size_y = np.array(data['Z_ave'])
+    size_std = np.array(data['Z_ave_stdev'])
 
     # Load the screen data
     screen = pd.read_csv('data/screen_library.csv')
@@ -45,7 +47,7 @@ def load_data(cycle: int = 0, seed: int = 42, shuffle: bool = True, omit_unstabl
     screen_id = np.array(screen['ID'])
     screen_x = np.array([screen['PLGA'], screen['PP-L'], screen['PP-COOH'], screen['PP-NH2'], screen['S/AS']]).T
 
-    return x, uptake_y, uptake_std, pdi_y, pdi_std, id, screen_x, screen_id
+    return x, uptake_y, uptake_std, pdi_y, pdi_std, size_y, size_std, id, screen_x, screen_id
 
 
 def augment_data(x: np.ndarray, y: np.ndarray, std: np.array, n_times: int = 5, shuffle: bool = True,
