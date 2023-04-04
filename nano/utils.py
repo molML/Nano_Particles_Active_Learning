@@ -19,9 +19,11 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
-def load_data(cycle: int = 0, seed: int = 42, shuffle: bool = True, omit_unstable: bool = False) -> \
+def load_data(cycle: int = 0, set: str = 'uptake', seed: int = 42, shuffle: bool = True, omit_unstable: bool = False) -> \
         (np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray):
     """ Loads the data from our pre-processed files, with the option to shuffle the samples """
+
+    assert set in ['uptake', 'pdi', 'size', 'screen'], "'set' should be 'uptake', 'pdi', 'size', or 'screen'"
 
     # Load the uptake data
     data = pd.read_csv(f'data/cycle_{cycle}/Uptake_data_cycle_{cycle}.csv')
@@ -32,22 +34,38 @@ def load_data(cycle: int = 0, seed: int = 42, shuffle: bool = True, omit_unstabl
 
     id = np.array(data['ID'])
     x = np.array([data['PLGA'], data['PP-L'], data['PP-COOH'], data['PP-NH2'], data['S/AS']]).T
-    uptake_y = np.array(data['Uptake'])
-    uptake_std = np.array(data['Uptake_stdev'])
-    pdi_y = np.array(data['PDI'])
-    pdi_std = np.array(data['PDI_stdev'])
-    size_y = np.array(data['Z_ave'])
-    size_std = np.array(data['Z_ave_stdev'])
 
-    # Load the screen data
-    screen = pd.read_csv('data/screen_library.csv')
-    if shuffle:
-        screen = sklearn_shuffle(screen, random_state=seed)
+    if set == 'uptake':
+        uptake_y = np.array(data['Uptake'])
+        uptake_std = np.array(data['Uptake_stdev'])
+        nan_filter = np.invert(np.isnan(uptake_y))
 
-    screen_id = np.array(screen['ID'])
-    screen_x = np.array([screen['PLGA'], screen['PP-L'], screen['PP-COOH'], screen['PP-NH2'], screen['S/AS']]).T
+        return x[nan_filter], uptake_y[nan_filter], uptake_std[nan_filter], id[nan_filter]
 
-    return x, uptake_y, uptake_std, pdi_y, pdi_std, size_y, size_std, id, screen_x, screen_id
+    elif set == 'pdi':
+        pdi_y = np.array(data['PDI'])
+        pdi_std = np.array(data['PDI_stdev'])
+        nan_filter = np.invert(np.isnan(pdi_y))
+
+        return x[nan_filter], pdi_y[nan_filter], pdi_std[nan_filter], id[nan_filter]
+
+    elif set == 'size':
+        size_y = np.array(data['Z_ave'])
+        size_std = np.array(data['Z_ave_stdev'])
+        nan_filter = np.invert(np.isnan(size_y))
+
+        return x[nan_filter], size_y[nan_filter], size_std[nan_filter], id[nan_filter]
+
+    elif set == 'screen':
+        # Load the screen data
+        screen = pd.read_csv('data/screen_library.csv')
+        if shuffle:
+            screen = sklearn_shuffle(screen, random_state=seed)
+
+        screen_id = np.array(screen['ID'])
+        screen_x = np.array([screen['PLGA'], screen['PP-L'], screen['PP-COOH'], screen['PP-NH2'], screen['S/AS']]).T
+
+        return screen_x, screen_id
 
 
 def augment_data(x: np.ndarray, y: np.ndarray, std: np.array, n_times: int = 5, shuffle: bool = True,
