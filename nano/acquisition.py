@@ -20,7 +20,7 @@ from sklearn.metrics import pairwise_distances_argmin_min
 
 
 def acquisition_function(screen_df, m: int = 100, k: int = 10, seed: int = 42, mode: str = 'explorative',
-                         pdi_cutoff: float = 0.2):
+                         pdi_cutoff: float = 0.2, size_cutoff: float = None):
     """ Acquisition algorithm
     Explorative:
         1. select top m most uncertain samples
@@ -50,7 +50,12 @@ def acquisition_function(screen_df, m: int = 100, k: int = 10, seed: int = 42, m
     screen_df = screen_df.loc[~screen_df['ID'].isin(previously_picked)]
 
     # Remove all formulations with a predicted PdI higher than the cuttoff value
-    screen_df = screen_df.loc[screen_df['y_hat_pdi'] < pdi_cutoff]
+    if pdi_cutoff is not None:
+        screen_df = screen_df.loc[screen_df['y_hat_pdi'] < pdi_cutoff]
+
+    # Remove all formulations with a predicted size higher than the cuttoff value
+    if size_cutoff is not None:
+        screen_df = screen_df.loc[screen_df['y_hat_size'] < size_cutoff]
 
     if mode == 'explorative':
         # select top m most uncertain samples
