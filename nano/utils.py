@@ -90,9 +90,15 @@ def screen_predict(screen_x, screen_id, uptake_model, pdi_model, filename: str):
     y_hat_uptake, y_hat_mean_uptake, y_hat_uncertainty_uptake = uptake_model.predict(screen_x)
     y_hat_pdi, y_hat_mean_pdi, y_hat_uncertainty_pdi = pdi_model.predict(screen_x)
 
+    # get the 90% CI
+    y_hat_05 = y_hat_uptake.kthvalue(int(y_hat_uptake.shape[1] * 0.05), dim=1)[0]
+    y_hat_95 = y_hat_uptake.kthvalue(int(y_hat_uptake.shape[1] * 0.95), dim=1)[0]
+
     screen_df = pd.DataFrame({'ID': screen_id,
                               'y_hat_uptake': y_hat_mean_uptake,
                               'y_uncertainty_uptake': y_hat_uncertainty_uptake,
+                              'y_hat_uptake_CI05%': y_hat_05,
+                              'y_hat_uptake_CI95%': y_hat_95,
                               'y_hat_pdi': y_hat_mean_pdi,
                               'y_uncertainty_pdi': y_hat_uncertainty_pdi,
                               'x_PLGA': screen_x[:, 0],
