@@ -155,8 +155,9 @@ if __name__ == '__main__':
 
     uptake_model = torch.load(f'models/uptake_model_{CYCLE}_bnn_{DATE}.pt')
     pdi_model = torch.load(f'models/pdi_model_{CYCLE}_xgb_{DATE}.pt')
+    size_model = torch.load(f'models/size_model_{CYCLE}_xgb_{DATE}.pt')
 
-    screen_df = screen_predict(screen_x, screen_id, uptake_model, pdi_model,
+    screen_df = screen_predict(screen_x, screen_id, uptake_model, pdi_model, size_model,
                                f'results/screen_predictions_{CYCLE}_{DATE}.csv')
 
     """ Sample acquisition ------------------------------------ """
@@ -165,7 +166,8 @@ if __name__ == '__main__':
                                  m=int(len(screen_df)*M_ACQUISITION_FRACTION),
                                  k=K_ACQUISITION_BATCHSIZE,
                                  mode=ACQUISITION_MODE,
-                                 pdi_cutoff=0.2)
+                                 pdi_cutoff=0.2,
+                                 size_cutoff=None)
 
     # Quick PCA to visualise screening picks sampling
     picks_pca(screen_df, screen_x, picks)
