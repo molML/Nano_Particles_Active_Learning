@@ -1,0 +1,12 @@
+1.2567052965682406,{'lr': 0.0001, 'hidden_size': 32, 'epochs': 10000, 'n_layers': 2}
+1.2270907966451148,{'lr': 0.0001, 'hidden_size': 32, 'epochs': 10000, 'n_layers': 3}
+1.2844027293679947,{'lr': 0.0001, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 2}
+1.2485579553680743,{'lr': 0.0001, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 3}
+1.2803219063630522,{'lr': 0.001, 'hidden_size': 32, 'epochs': 10000, 'n_layers': 2}
+1.300498410828244,{'lr': 0.001, 'hidden_size': 32, 'epochs': 10000, 'n_layers': 3}
+1.2687630254799236,{'lr': 0.001, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 2}
+1.3352772491442284,{'lr': 0.001, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 3}
+1.3823113973498018,{'lr': 1e-05, 'hidden_size': 32, 'epochs': 10000, 'n_layers': 2}
+1.3597424027544114,{'lr': 1e-05, 'hidden_size': 32, 'epochs': 10000, 'n_layers': 3}
+1.243580576040997,{'lr': 1e-05, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 2}
+1.282735678066257,{'lr': 1e-05, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 3}
