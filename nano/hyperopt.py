@@ -18,11 +18,14 @@ from typing import Union
 import itertools
 
 import pandas as pd
+import torch
 from skopt import gp_minimize
 from skopt.space.space import Categorical, Real, Integer
 from skopt.utils import use_named_args
 from nano.eval import k_fold_cross_validation, calc_rmse
 from nano.hyperparameters import XGBoost_hypers, BNN_hypers
+from nano.vis import scatter
+import matplotlib.pyplot as plt
 
 
 def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, std: np.array, log_file: str = 'hypers_log.csv',
@@ -64,20 +67,32 @@ def grid_search(x, y, std, dimensions, log_file: str, bootstrap: int = 5, n_fold
             with open(log_file) as f:
                 previous_hypers = [eval(','.join(l.strip().split(',')[1:])) for l in f.readlines()]
         if hypers not in previous_hypers:
-            scores = []
+            y_hats_mu, y_hats_sigma = [], []
             for i in range(bootstrap):
                 try:
-                    y_hats, y_hats_mean, y_hats_uncertainty = k_fold_cross_validation(x, y, std, n_folds=n_folds, seed=i,
-                                                                                      ensemble_size=ensemble_size,
-                                                                                      augment=augment, model=model, **hypers)
-                    scores.append(calc_rmse(y, y_hats_mean))
+                    y_hats_, y_hats_mu_, y_hats_sigma_ = k_fold_cross_validation(x, y, std, n_folds=n_folds, seed=i,
+                                                                                 ensemble_size=ensemble_size,
+                                                                                 augment=augment, model=model, **hypers)
+                    y_hats_mu.append(y_hats_mu_)
+                    y_hats_sigma.append(y_hats_sigma_)
+
                 except:
                     warnings.warn(f'Failed run {i} for {hypers}')
 
-            if len(scores) == 0:
+            if len(y_hats_mu) == 0:
                 score = 'error'
             else:
-                score = sum(scores) / len(scores)
+
+                y_hats_mu = np.mean(np.array(y_hats_mu), 0)
+                y_hats_sigma = np.mean(np.array(y_hats_sigma), 0)
+
+                # Plot scatter
+                plot_name = f"plots/hyper_opt_{hypers}"
+                for char in ['{', '}', ':', ',', "'", ' ', '.']:
+                    plot_name = plot_name.replace(char, "")
+                scatter(y=y, y_hat=y_hats_mu, uncertainty=y_hats_sigma, outfile=plot_name+'.png')
+
+                score = calc_rmse(y, y_hats_mu)
 
             with open(log_file, 'a') as f:
                 f.write(f"{score},{hypers}\n")
@@ -116,16 +131,22 @@ class BayesianOptimization:
                     hyperparameters = convert_types(hyperparameters)
                     print(f"Current hyperparameters: {hyperparameters}")
 
-                    scores = []
+
+                    y_hats_mu, y_hats_sigma = [], []
                     for i in range(bootstrap):
                         # break
-                        y_hats, y_hats_mu, y_hats_sigma = k_fold_cross_validation(x, y, std, n_folds=n_folds,  seed=i,
-                                                                                  ensemble_size=ensemble_size,
-                                                                                  augment=augment, model=model,
-                                                                                  **hyperparameters)
-                        scores.append(calc_rmse(y, y_hats_mu))
+                        y_hats, y_hats_mu_, y_hats_sigma_ = k_fold_cross_validation(x, y, std, n_folds=n_folds, seed=i,
+                                                                                    ensemble_size=ensemble_size,
+                                                                                    augment=augment, model=model,
+                                                                                    **hyperparameters)
 
-                    score = sum(scores)/len(scores)
+                        y_hats_mu.append(y_hats_mu_)
+                        y_hats_sigma.append(y_hats_sigma_)
+
+                    y_hats_mu = np.mean(np.array(y_hats_mu), 0)
+                    y_hats_sigma = np.mean(np.array(y_hats_sigma), 0)
+
+                    score = calc_rmse(y, y_hats_mu)
 
                     with open(log_file, 'a') as f:
                         f.write(f"{score},{hyperparameters}\n")
