@@ -109,7 +109,6 @@ if __name__ == '__main__':
     pdi_model.train(pdi_x_augmented, pdi_y_augmented)
     torch.save(pdi_model, f'models/pdi_model_{CYCLE}_xgb_{DATE}.pt')
 
-
     """ Size model ------------------------------------------------ """
 
     # Load data, we now include unstable particles to learn from them
