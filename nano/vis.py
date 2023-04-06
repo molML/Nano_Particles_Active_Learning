@@ -4,7 +4,7 @@ import pandas as pd
 from copy import deepcopy
 
 
-def scatter(y, y_hat, uncertainty=None, labels=None):
+def scatter(y, y_hat, uncertainty=None, labels=None, lower=None, upper=None, outfile: str = None):
 
     import matplotlib.pyplot as plt
 
@@ -25,6 +25,9 @@ def scatter(y, y_hat, uncertainty=None, labels=None):
     plt.figure(figsize=(20, 20))
     ax.set_aspect(abs(x1-x0)/abs(y1-y0))
 
+    if outfile is not None:
+        fig.savefig(outfile, dpi=150)
+
     plt.show()
 
 
@@ -44,7 +47,11 @@ def picks_pca(df, screen_x, picks):
     pca_screen = pca_screen.fit_transform(screen_x)
     pca_df = pd.DataFrame(data=pca_screen, columns=['PC 1', 'PC 2'])
 
-    plt.figure(figsize=(20, 20))
+    df['PC1'] = pca_df['PC 1']
+    df['PC2'] = pca_df['PC 2']
+    df.to_csv('results/pca.csv')
+
+    plt.figure(figsize=(10, 10))
     sns.scatterplot(
         x="PC 1", y="PC 2",
         hue=df['pick'],
