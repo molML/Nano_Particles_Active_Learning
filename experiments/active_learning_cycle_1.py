@@ -23,38 +23,34 @@ pd.set_option('display.max_columns', None)
 
 # Cycle
 CYCLE = 1
-DATE = '3Apr'
+DATE = '19Apr'
 # Number of tries during Bayesian hyperparameter optimization.
-HYPEROPT_CALLS_BNN = 100
 HYPEROPT_CALLS_XGB = 500
 # Number of times to bootstrap all k-fold cross-validation runs. Creates b differently split k-folds .
-BOOTSTRAP = 5
+BOOTSTRAP = 3
 # Number of folds in our k-fold cross-validation.
 N_FOLDS = 5
 # Number of times to augment the data. 5x means 1x the original data + 4x an augmented copy
 AUGMENT = 5
 
 # m fraction, see nano.acquisition
-M_ACQUISITION_FRACTION = 0.10
+M_ACQUISITION_FRACTION = 0.05
 # k, or acquisition batch size, this is the number of formulations we sample from our screen set
 K_ACQUISITION_BATCHSIZE = 10
 # Acquisition mode. Can be either 'explorative' or 'exploitative', see nano.acquisition
-ACQUISITION_MODE = 'explorative'
+ACQUISITION_MODE = 'exploitative'
 
 if __name__ == '__main__':
 
     """ Load data ------------------------------------------------ """
 
-    x, uptake_y, uptake_std, pdi_y, pdi_std, id, screen_x, screen_id = load_data(cycle=CYCLE,
-                                                                                 shuffle=True,
-                                                                                 omit_unstable=True)
+    uptake_x, uptake_y, uptake_std, uptake_id = load_data(cycle=CYCLE, set='uptake', shuffle=True, omit_unstable=True)
 
     """ Uptake model ------------------------------------------------ """
 
     # Hyperparameter optimization
-    best_hypers_uptake = optimize_hyperparameters(x=x, y=uptake_y, std=uptake_std,
+    best_hypers_uptake = optimize_hyperparameters(x=uptake_x, y=uptake_y, std=uptake_std,
                                                   log_file=f'results/uptake_model_{CYCLE}_hypers_bnn_{DATE}.csv',
-                                                  n_calls=HYPEROPT_CALLS_BNN,
                                                   bootstrap=BOOTSTRAP,
                                                   n_folds=N_FOLDS,
                                                   augment=AUGMENT,
@@ -62,7 +58,7 @@ if __name__ == '__main__':
                                                   method='grid_search')
 
     # Evaluate model performance with bootstrapped k-fold cross-validation
-    uptake_eval_results, uptake_rmse = evaluate_model(x=x, y=uptake_y, std=uptake_std, id=id,
+    uptake_eval_results, uptake_rmse = evaluate_model(x=uptake_x, y=uptake_y, std=uptake_std, id=uptake_id,
                                                       filename=f'results/uptake_model_{CYCLE}_eval_bnn_{DATE}.csv',
                                                       hyperparameters=best_hypers_uptake,
                                                       bootstrap=BOOTSTRAP,
@@ -71,10 +67,11 @@ if __name__ == '__main__':
                                                       model='bnn')
 
     # Quickly plot predicted vs true to make sure our model makes sense
-    scatter(y=uptake_y, y_hat=uptake_eval_results['y_hat'], uncertainty=uptake_eval_results['y_uncertainty'], labels=id)
+    scatter(y=uptake_y, y_hat=uptake_eval_results['y_hat'], uncertainty=uptake_eval_results['y_uncertainty'],
+            labels=uptake_id)
 
     # Train final model with augmented train data
-    uptake_x_augmented, uptake_y_augmented = augment_data(x, uptake_y, uptake_std, n_times=AUGMENT)
+    uptake_x_augmented, uptake_y_augmented = augment_data(uptake_x, uptake_y, uptake_std, n_times=AUGMENT)
     uptake_model = BayesianNN(**best_hypers_uptake)
     uptake_model.train(uptake_x_augmented, uptake_y_augmented)
     torch.save(uptake_model, f'models/uptake_model_{CYCLE}_bnn_{DATE}.pt')
@@ -82,12 +79,10 @@ if __name__ == '__main__':
     """ PdI model ------------------------------------------------ """
 
     # Load data, we now include unstable particles to learn from them
-    x, uptake_y, uptake_std, pdi_y, pdi_std, id, screen_x, screen_id = load_data(cycle=CYCLE,
-                                                                                 shuffle=True,
-                                                                                 omit_unstable=False)
+    pdi_x, pdi_y, pdi_std, pdi_id = load_data(cycle=CYCLE, set='pdi', shuffle=True, omit_unstable=False)
 
     # hyperparameter optimization
-    best_hypers_pdi = optimize_hyperparameters(x=x, y=pdi_y, std=pdi_std,
+    best_hypers_pdi = optimize_hyperparameters(x=pdi_x, y=pdi_y, std=pdi_std,
                                                log_file=f'results/pdi_model_{CYCLE}_hypers_xgb_{DATE}.csv',
                                                n_calls=HYPEROPT_CALLS_XGB,
                                                bootstrap=BOOTSTRAP,
@@ -97,7 +92,7 @@ if __name__ == '__main__':
                                                method='bayesian')
 
     # Evaluate model performance with bootstrapped k-fold cross-validation
-    pdi_eval_results, pdi_rmse = evaluate_model(x=x, y=pdi_y, std=pdi_std, id=id,
+    pdi_eval_results, pdi_rmse = evaluate_model(x=pdi_x, y=pdi_y, std=pdi_std, id=pdi_id,
                                                 filename=f'results/pdi_model_{CYCLE}_eval_xgb_{DATE}.csv',
                                                 hyperparameters=best_hypers_pdi,
                                                 bootstrap=BOOTSTRAP,
@@ -106,20 +101,58 @@ if __name__ == '__main__':
                                                 model='xgb')
 
     # Quickly plot predicted vs true
-    scatter(y=pdi_y, y_hat=pdi_eval_results['y_hat'], uncertainty=pdi_eval_results['y_uncertainty'], labels=id)
+    scatter(y=pdi_y, y_hat=pdi_eval_results['y_hat'], uncertainty=pdi_eval_results['y_uncertainty'], labels=pdi_id)
 
     # Train final model with augmented train data
-    pdi_x_augmented, pdi_y_augmented = augment_data(x, pdi_y, pdi_std, n_times=AUGMENT)
+    pdi_x_augmented, pdi_y_augmented = augment_data(pdi_x, pdi_y, pdi_std, n_times=AUGMENT)
     pdi_model = XGBoostEnsemble(ensemble_size=1, **best_hypers_pdi)  # we use a single xgb model
     pdi_model.train(pdi_x_augmented, pdi_y_augmented)
     torch.save(pdi_model, f'models/pdi_model_{CYCLE}_xgb_{DATE}.pt')
 
+    """ Size model ------------------------------------------------ """
+
+    # Load data, we now include unstable particles to learn from them
+    size_x, size_y, size_std, size_id = load_data(cycle=CYCLE, set='size', shuffle=True, omit_unstable=False)
+
+    # hyperparameter optimization
+    best_hypers_size = optimize_hyperparameters(x=size_x, y=size_y, std=size_std,
+                                               log_file=f'results/size_model_{CYCLE}_hypers_xgb_{DATE}.csv',
+                                               n_calls=HYPEROPT_CALLS_XGB,
+                                               bootstrap=BOOTSTRAP,
+                                               n_folds=N_FOLDS,
+                                               augment=AUGMENT,
+                                               model='xgb',
+                                               method='bayesian')
+
+    # Evaluate model performance with bootstrapped k-fold cross-validation
+    size_eval_results, size_rmse = evaluate_model(x=size_x, y=size_y, std=size_std, id=size_id,
+                                                filename=f'results/size_model_{CYCLE}_eval_xgb_{DATE}.csv',
+                                                hyperparameters=best_hypers_size,
+                                                bootstrap=BOOTSTRAP,
+                                                n_folds=N_FOLDS,
+                                                augment=AUGMENT,
+                                                model='xgb')
+
+    # Quickly plot predicted vs true
+    scatter(y=size_y, y_hat=size_eval_results['y_hat'], uncertainty=size_eval_results['y_uncertainty'], labels=size_id)
+
+    # Train final model with augmented train data
+    size_x_augmented, size_y_augmented = augment_data(size_x, size_y, size_std, n_times=AUGMENT)
+    size_model = XGBoostEnsemble(ensemble_size=1, **best_hypers_size)  # we use a single xgb model
+    size_model.train(size_x_augmented, size_y_augmented)
+    torch.save(size_model, f'models/size_model_{CYCLE}_xgb_{DATE}.pt')
+
     """ Screen ------------------------------------------------ """
+
+    screen_x, screen_id = load_data(cycle=CYCLE, set='screen', shuffle=True, omit_unstable=False)
+    previous_picks = load_data(cycle=CYCLE, set='uptake', shuffle=True, omit_unstable=False)[3]
 
     uptake_model = torch.load(f'models/uptake_model_{CYCLE}_bnn_{DATE}.pt')
     pdi_model = torch.load(f'models/pdi_model_{CYCLE}_xgb_{DATE}.pt')
+    size_model = torch.load(f'models/size_model_{CYCLE}_xgb_{DATE}.pt')
 
-    screen_df = screen_predict(screen_x, screen_id, uptake_model, pdi_model, f'results/screen_predictions_{CYCLE}.csv')
+    screen_df = screen_predict(screen_x, screen_id, uptake_model, pdi_model, size_model, previous_picks,
+                               f'results/screen_predictions_{CYCLE}_{DATE}.csv')
 
     """ Sample acquisition ------------------------------------ """
 
@@ -127,7 +160,9 @@ if __name__ == '__main__':
                                  m=int(len(screen_df)*M_ACQUISITION_FRACTION),
                                  k=K_ACQUISITION_BATCHSIZE,
                                  mode=ACQUISITION_MODE,
-                                 pdi_cutoff=0.2)
+                                 pdi_cutoff=0.2,
+                                 size_cutoff=None,
+                                 previous_picks=previous_picks)
 
     # Quick PCA to visualise screening picks sampling
     picks_pca(screen_df, screen_x, picks)
