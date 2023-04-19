@@ -1,0 +1,12 @@
+3.412485986,{'lr': 0.0001, 'hidden_size': 32, 'epochs': 10000, 'n_layers': 2}
+3.399227256,{'lr': 0.0001, 'hidden_size': 32, 'epochs': 10000, 'n_layers': 3}
+3.146793557,{'lr': 0.0001, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 2}
+3.25833708,{'lr': 0.0001, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 3}
+3.185277035,{'lr': 0.001, 'hidden_size': 32, 'epochs': 10000, 'n_layers': 2}
+3.159763367,{'lr': 0.001, 'hidden_size': 32, 'epochs': 10000, 'n_layers': 3}
+3.232172685,{'lr': 0.001, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 2}
+3.362447667,{'lr': 0.001, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 3}
+4.03713995,{'lr': 1e-05, 'hidden_size': 32, 'epochs': 10000, 'n_layers': 2}
+3.891672231,{'lr': 1e-05, 'hidden_size': 32, 'epochs': 10000, 'n_layers': 3}
+3.486386124,{'lr': 1e-05, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 2}
+3.457308817,{'lr': 1e-05, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 3}

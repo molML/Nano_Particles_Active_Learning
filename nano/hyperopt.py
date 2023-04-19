@@ -27,6 +27,13 @@ from nano.hyperparameters import XGBoost_hypers, BNN_hypers
 from nano.vis import scatter
 import matplotlib.pyplot as plt
 
+# x = uptake_x
+# y = uptake_y
+# std=uptake_std
+# bootstrap=3
+# n_folds=5
+# augment=5
+# hypers = {'lr': 1e-04, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 2}
 
 def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, std: np.array, log_file: str = 'hypers_log.csv',
                              n_calls: int = 50, min_init_points: int = 10, bootstrap: int = 5, n_folds: int = 5,

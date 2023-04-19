@@ -19,14 +19,15 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
-def load_data(cycle: int = 0, set: str = 'uptake', seed: int = 42, shuffle: bool = True, omit_unstable: bool = False) -> \
+def load_data(cycle: int = 0, set: str = 'uptake', seed: int = 42, shuffle: bool = True, omit_unstable: bool = False,
+              suffix: str = '') -> \
         (np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray):
     """ Loads the data from our pre-processed files, with the option to shuffle the samples """
 
     assert set in ['uptake', 'pdi', 'size', 'screen'], "'set' should be 'uptake', 'pdi', 'size', or 'screen'"
 
     # Load the uptake data
-    data = pd.read_csv(f'data/cycle_{cycle}/Uptake_data_cycle_{cycle}.csv')
+    data = pd.read_csv(f'data/cycle_{cycle}/Uptake_data_cycle_{cycle}{suffix}.csv')
     if omit_unstable:
         data = data.drop(data[data['PDI'] > 0.2].index)
     if shuffle:
