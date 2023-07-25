@@ -1,8 +1,9 @@
+
+<h2 id="Title">Machine learning-guided polymeric nanoparticle design</h2>
+
 ![repo version](https://img.shields.io/badge/Version-v.%201.0-green)
 ![python version](https://img.shields.io/badge/python-v.3.9-blue)
 ![license](https://img.shields.io/badge/license-MIT-orange)
-
-<h2 id="Title">Machine learning-guided polymeric nanoparticle design</h2>
 
 **Ana Ortiz-Perez**<sup>1</sup>, **Derek van Tilborg**<sup>1</sup>, **Roy van der Meel**, **Francesca Grisoni**<sup>\*</sup>, **Lorenzo Albertazzi**<sup>\*</sup>\
 <sup>1</sup>These authors contributed equally to this work.\
