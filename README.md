@@ -4,8 +4,8 @@
 
 <h2 id="Title">Machine learning-guided polymeric nanoparticle design</h2>
 
-Ana Ortiz-Perez<sup>1</sup>, Derek van Tilborg<sup>1</sup>, Roy van der Meel, Francesca Grisoni<sup>\*</sup>, Lorenzo Albertazzi<sup>\*</sup>\n
-<sup>1</sup>These authors contributed equally to this work.\n
+Ana Ortiz-Perez<sup>1</sup>, Derek van Tilborg<sup>1</sup>, Roy van der Meel, Francesca Grisoni<sup>\*</sup>, Lorenzo Albertazzi<sup>\*</sup>\
+<sup>1</sup>These authors contributed equally to this work.\
 <sup>\*</sup> Corresponding authors: f.grisoni@tue.nl, l.albertazzi@tue.nl. 
 
 This is the codebase that belongs to the paper: ...doi...
