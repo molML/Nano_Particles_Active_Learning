@@ -2,9 +2,15 @@
 ![python version](https://img.shields.io/badge/python-v.3.9-blue)
 ![license](https://img.shields.io/badge/license-MIT-orange)
 
-<!-- Machine learning-guided polymeric nanoparticle design  -->
+<h2 id="Title">Machine learning-guided polymeric nanoparticle design</h2>
+
 Ana Ortiz-Perez<sup>1</sup>, Derek van Tilborg<sup>1</sup>, Roy van der Meel, Francesca Grisoni, Lorenzo Albertazzi
-^1These authors contributed equally to this work.
+
+<sup>1</sup>These authors contributed equally to this work.
+
+
+![Figure 1](figures/fig1.png?raw=true "Figure1")
+*Conceptual overview of the proposed iterative nanoparticle design pipeline*
 
 
 <!-- Prerequisites-->
@@ -18,12 +24,6 @@ The following Python packages are required to run this codebase
 - [XGBoost](https://xgboost.readthedocs.io/) (1.7.3)
 - [Scikit-learn](https://scikit-learn.org/) (1.2.1)
 - [Scikit-optimize](https://scikit-optimize.github.io/) (0.9.0)
-
-
-
-
-![Figure 1](figures/fig1.png?raw=true "Figure1")
-*Conceptual overview of the proposed iterative nanoparticle design pipeline*
 
 
 <!-- How to cite-->
