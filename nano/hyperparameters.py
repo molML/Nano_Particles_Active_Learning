@@ -18,6 +18,6 @@ XGBoost_hypers = {
 
 
 BNN_hypers = {'lr': [1e-4, 1e-3, 1e-5],              # categorical
-              'hidden_size': [32],                   # categorical  64
-              'epochs': [10000, 20000],              # categorical
-              'n_layers': [2, 3]}                    # integer range from 2 - 5
+              'hidden_size': [16, 32, 64],                   # categorical  64
+              'epochs': [10000],              # categorical
+              'n_layers': [3]}                    # integer range from 2 - 5
