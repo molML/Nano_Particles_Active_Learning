@@ -1,5 +1,4 @@
-
-<h2 id="Title">Machine learning-guided polymeric nanoparticle design</h2>
+<h2 id="Title">Machine learning-guided high throughput nanoparticle design</h2>
 
 ![repo version](https://img.shields.io/badge/Version-v.%201.0-green)
 ![python version](https://img.shields.io/badge/python-v.3.9-blue)
@@ -12,11 +11,12 @@
 This is the codebase that belongs to the paper: ...doi...
 
 **Abstract**\
-The enormous design space of multicomponent nanoparticles challenges their efficient development and optimization. High throughput methodologies and data-driven computational approaches are attractive emerging strategies to expedite nanoparticle composition design. Here, we show that microfluidics-based production and high content screening guided by active machine learning can rapidly identify PLGA-PEG nanoparticles with a high degree of uptake in breast cancer cells. To the best of our knowledge, this is the first time that these three technologies have been successfully integrated to optimize a biological response through nanoparticle composition. From a small library of particles, uptake was increased up to 15-fold after two rounds of machine learning guided production and screening. Moreover, the resulting predictive model discerns between low and high nanoparticle uptake in cells and can be used to elucidate composition-function relationships. The proposed platform enables rapid and unbiased nanoparticle design.
+Designing nanoparticles with desired properties is a challenging endeavor, due to the large combinatorial space and complex structure-function relationships. High throughput methodologies and machine learning approaches are attractive and emergent strategies to accelerate nanoparticle composition design. To date, how to combine nanoparticle formulation, screening, and computational decision-making into a single effective workflow is underexplored. In this study, we showcase the integration of three key technologies, namely microfluidic-based formulation, high content imaging, and active machine learning. As a case study, we apply our approach for designing PLGA-PEG nanoparticles with high uptake in human breast cancer cells. Starting from a small set of nanoparticles for model training, our approach led to an increase in uptake from ~5-fold to ~15-fold in only two machine learning guided iterations, taking one week each. To the best of our knowledge, this is the first time that these three technologies have been successfully integrated to optimize a biological response through nanoparticle composition. Our results underscore the potential of the proposed platform for rapid and unbiased nanoparticle optimization.
 
 
 ![Figure 1](figures/fig1.png?raw=true "Figure1")
-*Fig 1. Conceptual overview of the proposed iterative nanoparticle design pipeline*
+**Figure 1. Conceptual overview of the proposed iterative nanoparticle design pipeline. (a)** the three key integrated technologies: (1) nanoparticles are formulated by microfluidics-assisted nanoprecipitation by controlling different formulation variables xi, (2) the formulations are screened with high content imaging (HCI) to determine their properties yi (e.g., their uptake in MDA-MB-468 cells, as in this proof of concept), and (3) a machine learning model learns the relationship between nanoparticle formulations (x) and their corresponding property (y), and is used to guide the next cycle. **(b)** Overview of experimental cycle: from microfluidic formulation to formulation selection for the following cycle in five days.
+
 
 
 <!-- Prerequisites-->
@@ -37,7 +37,7 @@ The following Python packages are required to run this codebase
 
 You can currently cite our [pre-print](https://chemrxiv.org/engage/chemrxiv/article-details/...):
 
-Ortiz-Perez *et al.* (2023). Machine learning-guided polymeric nanoparticle design. ChemRxiv.   
+Ortiz-Perez *et al.* (2023). Machine learning-guided high throughput nanoparticle design. ChemRxiv.   
 
 
 <!-- License-->
