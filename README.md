@@ -16,7 +16,7 @@ Designing nanoparticles with desired properties is a challenging endeavor, due t
 
 
 ![Figure 1](figures/fig1.png?raw=true "Figure1")
-**Figure 1. Conceptual overview of the proposed iterative nanoparticle design pipeline (a)** the three key integrated technologies: (1) nanoparticles are formulated by microfluidics-assisted nanoprecipitation by controlling different formulation variables xi, (2) the formulations are screened with high content imaging (HCI) to determine their properties yi (e.g., their uptake in MDA-MB-468 cells, as in this proof of concept), and (3) a machine learning model learns the relationship between nanoparticle formulations (x) and their corresponding property (y), and is used to guide the next cycle. **(b)** Overview of experimental cycle: from microfluidic formulation to formulation selection for the following cycle in five days.
+**Figure 1. Conceptual overview of the proposed iterative nanoparticle design pipeline. (a)** the three key integrated technologies: (1) nanoparticles are formulated by microfluidics-assisted nanoprecipitation by controlling different formulation variables xi, (2) the formulations are screened with high content imaging (HCI) to determine their properties yi (e.g., their uptake in MDA-MB-468 cells, as in this proof of concept), and (3) a machine learning model learns the relationship between nanoparticle formulations (x) and their corresponding property (y), and is used to guide the next cycle. **(b)** Overview of experimental cycle: from microfluidic formulation to formulation selection for the following cycle in five days.
 
 
 
