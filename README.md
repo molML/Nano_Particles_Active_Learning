@@ -1,4 +1,3 @@
-![image](https://github.com/derekvantilborg/Nano_Particles_Active_Learning/assets/38407943/0e24dad4-1166-4d5d-9f1b-6d8384de72a3)
 <h2 id="Title">Machine learning-guided polymeric nanoparticle design</h2>
 
 ![repo version](https://img.shields.io/badge/Version-v.%201.0-green)
