@@ -1,4 +1,4 @@
-<h2 id="Title">Machine learning-guided polymeric nanoparticle design</h2>
+<h2 id="Title">Machine learning-guided high throughput nanoparticle design</h2>
 
 ![repo version](https://img.shields.io/badge/Version-v.%201.0-green)
 ![python version](https://img.shields.io/badge/python-v.3.9-blue)
@@ -37,7 +37,7 @@ The following Python packages are required to run this codebase
 
 You can currently cite our [pre-print](https://chemrxiv.org/engage/chemrxiv/article-details/...):
 
-Ortiz-Perez *et al.* (2023). Machine learning-guided polymeric nanoparticle design. ChemRxiv.   
+Ortiz-Perez *et al.* (2023). Machine learning-guided high throughput nanoparticle design. ChemRxiv.   
 
 
 <!-- License-->
