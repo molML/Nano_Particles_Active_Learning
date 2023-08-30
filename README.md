@@ -35,7 +35,7 @@ The following Python packages are required to run this codebase
 <!-- How to cite-->
 <h2 id="How-to-cite">How to cite</h2>
 
-You can currently cite our [pre-print](https://chemrxiv.org/engage/chemrxiv/article-details/...):
+You can currently cite our [pre-print](https://chemrxiv.org/engage/chemrxiv/article-details/64eca19379853bbd789bf951):
 
 Ortiz-Perez *et al.* (2023). Machine learning-guided high throughput nanoparticle design. ChemRxiv.   
 
