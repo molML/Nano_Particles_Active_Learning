@@ -11,9 +11,7 @@
 
 **Ana Ortiz-Perez**<sup>1</sup>, **Derek van Tilborg**<sup>1</sup>, **Roy van der Meel**, **Francesca Grisoni**<sup>\*</sup>, **Lorenzo Albertazzi**<sup>\*</sup>\
 <sup>1</sup>These authors contributed equally to this work.\
-<sup>\*</sup>Corresponding authors: f.grisoni@tue.nl, l.albertazzi@tue.nl. 
-
-This is the codebase that belongs to the paper: ...doi...
+<sup>\*</sup>Corresponding authors: f.grisoni@tue.nl, l.albertazzi@tue.nl.
 
 **Abstract**\
 Designing nanoparticles with desired properties is a challenging endeavor, due to the large combinatorial space and complex structure-function relationships. High throughput methodologies and machine learning approaches are attractive and emergent strategies to accelerate nanoparticle composition design. To date, how to combine nanoparticle formulation, screening, and computational decision-making into a single effective workflow is underexplored. In this study, we showcase the integration of three key technologies, namely microfluidic-based formulation, high content imaging, and active machine learning. As a case study, we apply our approach for designing PLGA-PEG nanoparticles with high uptake in human breast cancer cells. Starting from a small set of nanoparticles for model training, our approach led to an increase in uptake from ~5-fold to ~15-fold in only two machine learning guided iterations, taking one week each. To the best of our knowledge, this is the first time that these three technologies have been successfully integrated to optimize a biological response through nanoparticle composition. Our results underscore the potential of the proposed platform for rapid and unbiased nanoparticle optimization.
@@ -53,6 +51,7 @@ pip3 install pyro-ppl==1.8.4 pandas==1.5.3 numpy==1.23.5 xgboost==1.7.3 scikit-l
 
 <!-- Content-->
 <h2 id="content">Content</h2>
+
 - data: contains all data required to replicate the study
   - cycle_0: the starting data set
   - cycle_1: the data of cycle 0 + experimental data of the exploratively acquired nanoparticle formulations
