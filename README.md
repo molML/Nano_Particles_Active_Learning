@@ -52,6 +52,8 @@ pip3 install pyro-ppl==1.8.4 pandas==1.5.3 numpy==1.23.5 xgboost==1.7.3 scikit-l
 <!-- Content-->
 <h2 id="content">Content</h2>
 
+This repository is structured in the following way:
+
 - data: contains all data required to replicate the study
   - cycle_0: the starting data set
   - cycle_1: the data of cycle 0 + experimental data of the exploratively acquired nanoparticle formulations
