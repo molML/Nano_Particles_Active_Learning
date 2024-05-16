@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 from copy import deepcopy
+from sklearn.metrics.pairwise import euclidean_distances
 
 
 def scatter(y, y_hat, uncertainty=None, labels=None, lower=None, upper=None, outfile: str = None):
@@ -59,3 +60,23 @@ def picks_pca(df, screen_x, picks):
         alpha=df['alph']
     )
     plt.show()
+
+
+def design_space_homogeneity():
+
+    df = pd.read_csv('data/screen_library.csv')
+    df = df.iloc[:, :-1]
+    df = np.array(df)
+
+    D = euclidean_distances(df)
+
+    k_closest_mean = {'k': [], 'mean_dist': []}
+    # range(1, len(D), int(len(D)*0.1))
+    for k in [5, len(D)]:
+        for i, x in enumerate(D):
+            k_closest = x[i+1:][np.argsort(x[i+1:])][:k]
+            k_closest_mean['k'].append(k)
+            k_closest_mean['mean_dist'].append(np.mean(k_closest))
+
+    pd.DataFrame(k_closest_mean).to_csv('mean_dist_designspace.csv', index=False)
+

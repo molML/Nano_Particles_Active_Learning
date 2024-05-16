@@ -620,3 +620,35 @@ p_rela = plot_grid(p_uptake, p_pdi, p_size, ncol=1, labels = c('a', 'b', 'c'), l
 p_rela
 
 dev.print(pdf, 'np_al_supp_fig_relationships.pdf', width = 180/25.4, height = 100/25.4)
+
+
+# statistics on how the model-selected NPs performed over the DoE's 'blind search'
+doe = c(0.696, 0.83, 0.743, 1.122,0.987, 0.888, 0.4, 2.368, 1.87, 3.982, 4.77, 2.055, 3.615, 1.673, 1.095, 0.575, 3.662, 1.014, 0.705, 2.177, 1.478, 3.126, 3.598, 1.883, 3.767, 1.79, 1.403, 4.265)
+predicted = c(9.78, 11.31, 9.63, 5.72, 10.49, 11.59, 5.93, 14.4, 10.89, 7.44, 11.54, 8.6, 14.02, 13.91, 13.78, 14.5, 9.62, 12.17, 13.62, 11.27, 10.91, 10.39, 9.57, 11.33, 10.49)
+
+wilcox.test(doe, predicted)
+
+
+# Design space homogeneity
+design_dist <- read.csv("mean_dist_designspace.csv")
+design_dist = na.omit(design_dist)
+design_dist$k = factor(design_dist$k)
+
+ggplot(design_dist, aes(x = mean_dist, color=k, fill=k)) + 
+  # geom_histogram(binwidth=0.005, fill='#B6BEC2') +
+  geom_density(alpha=0.8) +
+  labs(x = 'Mean Euclidean distance to k closest points', y='Density') +
+  scale_color_manual(values=c('#3a5f75', '#81b3b0', '#EABA6B', '#7F9ED2')) +
+  scale_fill_manual(values=c('#3a5f75', '#81b3b0', '#EABA6B', '#7F9ED2')) +
+  custom_theme + 
+  theme(legend.position = 'none', legend.direction="vertical",
+        legend.title = element_text(size=7, face="plain", colour = "#1e3648"),
+        legend.text = element_text(size=7, face="plain", colour = "#1e3648"),
+        axis.text.y.left = element_blank(),
+        axis.ticks.y = element_blank())
+
+dev.print(pdf, 'np_al_supp_fig_designspace_density.pdf', width = 90/25.4, height = 50/25.4)
+
+
+
+
