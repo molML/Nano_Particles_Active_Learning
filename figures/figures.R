@@ -648,7 +648,3 @@ ggplot(design_dist, aes(x = mean_dist, color=k, fill=k)) +
         axis.ticks.y = element_blank())
 
 dev.print(pdf, 'np_al_supp_fig_designspace_density.pdf', width = 90/25.4, height = 50/25.4)
-
-
-
-

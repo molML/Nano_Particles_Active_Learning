@@ -90,6 +90,46 @@ def generate_screen_data(size: int = 100000, seed: int = 42) -> np.ndarray:
     return x
 
 
+def estimate_design_space_combinations() -> int:
+    """ Estimate the numnber unique formulations. We first calculate the number of distinguishable points for each
+    variable and then check if they sum up to one.
+
+    :return: number of possible unique nano particle combinations within the design space
+    """
+
+    # Define the range and error of every formulation variable
+    x1_lower, x1_upper, e1 = 0.06, 0.7, 0.012490  # PLGA
+    x2_lower, x2_upper, e2 = 0.06, 1, 0.012121  # PP-L
+    x3_lower, x3_upper, e3 = 0.06, 1, 0.012121  # PP-COOH
+    x4_lower, x4_upper, e4 = 0.06, 1, 0.012398  # PP-NH2
+    e_mean = np.mean([e1, e2, e3, e4])
+
+    def discretize_variable(lower_bound: float, upper_bound: float, error: float):
+        x = [lower_bound]
+        while x[-1] <= upper_bound * (1 - error):
+            x.append(x[-1] * (1 + error))
+        return np.array(x)
+
+    x1 = discretize_variable(x1_lower, x1_upper, e1)
+    x2 = discretize_variable(x2_lower, x2_upper, e2)
+    x3 = discretize_variable(x3_lower, x3_upper, e3)
+    x4 = discretize_variable(x4_lower, x4_upper, e4)
+
+    # Loop over all combinations and check if they sum to one
+    N = 0
+    for x1_ in tqdm(x1):
+        for x2_ in x2:
+            for x3_ in x3:
+                for x4_ in x4:
+                    if (1 - e_mean) < sum([x1_, x2_, x3_, x4_]) < (1 + e_mean):
+                        N += 1
+
+    # Multiply the possible combinations by the 4 possible solvent/antisolvent ratios
+    N = N * 4
+
+    return N
+
+
 if __name__ == '__main__':
 
     x = generate_screen_data(size=100000, seed=42)
@@ -98,3 +138,5 @@ if __name__ == '__main__':
     df['ID'] = [f"screen_{i}" for i in range(len(df))]
 
     df.to_csv('data/screen_library.csv', index=False)
+
+    print("Estimated total design space:", estimate_design_space_combinations())
