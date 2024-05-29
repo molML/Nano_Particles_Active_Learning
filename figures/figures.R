@@ -622,12 +622,64 @@ p_rela
 dev.print(pdf, 'np_al_supp_fig_relationships.pdf', width = 180/25.4, height = 100/25.4)
 
 
-# statistics on how the model-selected NPs performed over the DoE's 'blind search'
-doe = c(0.696, 0.83, 0.743, 1.122,0.987, 0.888, 0.4, 2.368, 1.87, 3.982, 4.77, 2.055, 3.615, 1.673, 1.095, 0.575, 3.662, 1.014, 0.705, 2.177, 1.478, 3.126, 3.598, 1.883, 3.767, 1.79, 1.403, 4.265)
-predicted = c(9.78, 11.31, 9.63, 5.72, 10.49, 11.59, 5.93, 14.4, 10.89, 7.44, 11.54, 8.6, 14.02, 13.91, 13.78, 14.5, 9.62, 12.17, 13.62, 11.27, 10.91, 10.39, 9.57, 11.33, 10.49)
+##### S4. Different ML models on Cycle 0 ####
 
-wilcox.test(doe, predicted)
 
+dfs4_bnn <- read.csv("/Users/derekvantilborg/Dropbox/PycharmProjects/Nano_Particles_Active_Learning/results/uptake_model_0_eval_bnn_5Apr.csv")
+dfs4_rf <- read.csv("/Users/derekvantilborg/Dropbox/PycharmProjects/Nano_Particles_Active_Learning/results/uptake_model_0_eval_rf_28May.csv")
+dfs4_xgb <- read.csv("/Users/derekvantilborg/Dropbox/PycharmProjects/Nano_Particles_Active_Learning/results/uptake_model_0_eval_xgb_28May.csv")
+dfs4_gp <- read.csv("/Users/derekvantilborg/Dropbox/PycharmProjects/Nano_Particles_Active_Learning/results/uptake_model_0_eval_gp_28May.csv")
+
+bnn_rmse = 1.227
+rf_rmse = 1.197
+xgb_rmse = 1.185
+gp_rmse = 1.263
+
+ps4_a = ggplot(dfs4_bnn, aes(x = y, y = y_hat))+
+  labs(x='Measured uptake (fold)', y='Predicted uptake (fold)') +
+  geom_abline(slope=1, linetype='dashed', alpha=0.25, color='#414562')+
+  geom_errorbar(aes(ymin=CI_5., ymax=CI_95.), width=.4, alpha=0.5, size=0.3, color='#3a5f75') +
+  geom_point(size=1, alpha=1, color = '#3a5f75')+
+  scale_color_manual(values=colours) +
+  coord_cartesian(xlim = c(-1, 7), ylim = c(-1, 7)) +
+  custom_theme
+
+ps4_b = ggplot(dfs4_xgb, aes(x = y, y = y_hat))+
+  labs(x='Measured uptake (fold)', y='Predicted uptake (fold)') +
+  geom_abline(slope=1, linetype='dashed', alpha=0.25, color='#414562')+
+  geom_errorbar(aes(ymin=CI_5., ymax=CI_95.), width=.4, alpha=0.5, size=0.3, color='#3a5f75') +
+  geom_point(size=1, alpha=1, color = '#3a5f75')+
+  scale_color_manual(values=colours) +
+  coord_cartesian(xlim = c(-1, 7), ylim = c(-1, 7)) +
+  custom_theme
+
+ps4_c = ggplot(dfs4_rf, aes(x = y, y = y_hat))+
+  labs(x='Measured uptake (fold)', y='Predicted uptake (fold)') +
+  geom_abline(slope=1, linetype='dashed', alpha=0.25, color='#414562')+
+  geom_errorbar(aes(ymin=CI_5., ymax=CI_95.), width=.4, alpha=0.5, size=0.3, color='#3a5f75') +
+  geom_point(size=1, alpha=1, color = '#3a5f75')+
+  scale_color_manual(values=colours) +
+  coord_cartesian(xlim = c(-1, 7), ylim = c(-1, 7)) +
+  custom_theme
+
+ps4_d = ggplot(dfs4_gp, aes(x = y, y = y_hat))+
+  labs(x='Measured uptake (fold)', y='Predicted uptake (fold)') +
+  geom_abline(slope=1, linetype='dashed', alpha=0.25, color='#414562')+
+  geom_errorbar(aes(ymin=CI_5., ymax=CI_95.), width=.4, alpha=0.5, size=0.3, color='#3a5f75') +
+  geom_point(size=1, alpha=1, color = '#3a5f75')+
+  scale_color_manual(values=colours) +
+  coord_cartesian(xlim = c(-1, 7), ylim = c(-1, 7)) +
+  custom_theme
+
+
+ps4 = plot_grid(ps4_a, ps4_b, ps4_c, ps4_d, ncol=4, labels = c('a', 'b', 'c', 'd'), label_size=8)
+ps4
+
+dev.print(pdf, '/Users/derekvantilborg/Dropbox/PycharmProjects/Nano_Particles_Active_Learning/np_al_supp_diff_models.pdf', 
+          width = 180/25.4, height = 45/25.4)
+
+
+##### S5. Design space homogeneity ####
 
 # Design space homogeneity
 design_dist <- read.csv("mean_dist_designspace.csv")
