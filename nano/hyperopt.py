@@ -23,17 +23,8 @@ from skopt import gp_minimize
 from skopt.space.space import Categorical, Real, Integer
 from skopt.utils import use_named_args
 from nano.eval import k_fold_cross_validation, calc_rmse
-from nano.hyperparameters import XGBoost_hypers, BNN_hypers
-from nano.vis import scatter
-import matplotlib.pyplot as plt
+from nano.hyperparameters import XGBoost_hypers, BNN_hypers, RF_hypers, GP_hypers
 
-# x = uptake_x
-# y = uptake_y
-# std=uptake_std
-# bootstrap=3
-# n_folds=5
-# augment=5
-# hypers = {'lr': 1e-04, 'hidden_size': 32, 'epochs': 20000, 'n_layers': 2}
 
 def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, std: np.array, log_file: str = 'hypers_log.csv',
                              n_calls: int = 50, min_init_points: int = 10, bootstrap: int = 5, n_folds: int = 5,
@@ -41,12 +32,16 @@ def optimize_hyperparameters(x: np.ndarray, y: np.ndarray, std: np.array, log_fi
                              method: str = 'grid_search') -> dict:
     """ Wrapper function to optimize hyperparameters on a dataset using bootstrapped k-fold cross-validation """
 
-    assert model in ['bnn', 'xgb'], f"'model' must be 'bnn', or 'xgb'"
+    assert model in ['bnn', 'xgb', 'rf', 'gp'], f"'model' must be 'bnn', 'xgb', 'gp', or 'rf'"
 
     if model == 'xgb':
         hypers = XGBoost_hypers
     if model == 'bnn':
         hypers = BNN_hypers
+    if model == 'rf':
+        hypers = RF_hypers
+    if model == 'gp':
+        hypers = GP_hypers
 
     if method == 'bayesian':
         # Optimize hyperparameters
