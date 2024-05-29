@@ -30,6 +30,8 @@ from pyro.infer.autoguide import AutoDiagonalNormal, AutoMultivariateNormal, ini
 from pyro.infer import SVI, Trace_ELBO, Predictive
 from tqdm.auto import trange, tqdm
 from xgboost import XGBRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.gaussian_process import GaussianProcessRegressor
 from nano.utils import numpy_to_dataloader
 import warnings
 warnings.filterwarnings("ignore")
@@ -58,6 +60,62 @@ class XGBoostEnsemble:
 
     def __repr__(self) -> str:
         return f"Ensemble of {len(self.models)} XGBoost Regressors"
+
+
+class RFEnsemble:
+    """ Ensemble of n Random Forest regressors, seeded differently """
+    def __init__(self, ensemble_size: int = 10, log_transform: bool = True, **kwargs) -> None:
+        self.models = {i: RandomForestRegressor(random_state=i, **kwargs) for i in range(ensemble_size)}
+        self.log_transform = log_transform
+
+    def predict(self, x: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray):
+        y_hat = np.array([model.predict(x) for i, model in self.models.items()])
+        if self.log_transform:
+            y_hat = 10 ** y_hat
+        y_hat_mean = np.mean(y_hat, axis=0)
+        y_hat_uncertainty = np.std(y_hat, axis=0)
+
+        return y_hat, y_hat_mean, y_hat_uncertainty
+
+    def train(self, x: np.ndarray, y: np.ndarray, **kwargs) -> None:
+        if self.log_transform:
+            y = np.log10(y)
+        for i, m in self.models.items():
+            self.models[i] = m.fit(x, y)
+
+    def __repr__(self) -> str:
+        return f"Ensemble of {len(self.models)} Random Forest Regressors"
+
+
+class GP:
+    """ Gaussian process regressors """
+    def __init__(self, log_transform: bool = True, **kwargs) -> None:
+        self.model = GaussianProcessRegressor(**kwargs)
+        self.log_transform = log_transform
+
+    def predict(self, x: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray):
+        y_hat_mean, y_hat_uncertainty = self.model.predict(x, return_std=True)
+
+        if self.log_transform:
+            y_hat_mean = 10 ** y_hat_mean
+
+            variance_original = (10 ** (y_hat_mean ** 2 * np.log(10) ** 2) - 1) * 10 ** (
+                        2 * y_hat_uncertainty + y_hat_mean ** 2 * np.log(10) ** 2)
+            # Calculate the standard deviation in the original scale
+            y_hat_uncertainty = np.sqrt(variance_original)
+
+        y_hat = y_hat_mean
+
+        return y_hat, y_hat_mean, y_hat_uncertainty
+
+    def train(self, x: np.ndarray, y: np.ndarray, **kwargs) -> None:
+        if self.log_transform:
+            y = np.log10(y)
+        self.model.fit(x, y)
+
+    def __repr__(self) -> str:
+        return f"Gaussian Process Regressors"
+
 
 
 class BayesianNN:
