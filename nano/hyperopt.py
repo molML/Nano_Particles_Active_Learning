@@ -12,16 +12,14 @@ Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 """
 import os.path
 import warnings
-
-import numpy as np
-from typing import Union
 import itertools
-
-import pandas as pd
-import torch
+from typing import Union
+import numpy as np
 from skopt import gp_minimize
 from skopt.space.space import Categorical, Real, Integer
 from skopt.utils import use_named_args
+from sklearn.gaussian_process.kernels import RBF, Matern, RationalQuadratic, ExpSineSquared, DotProduct, \
+    ConstantKernel as C
 from nano.eval import k_fold_cross_validation, calc_rmse
 from nano.hyperparameters import XGBoost_hypers, BNN_hypers, RF_hypers, GP_hypers
 
@@ -92,7 +90,7 @@ def grid_search(x, y, std, dimensions, log_file: str, bootstrap: int = 5, n_fold
                 plot_name = f"plots/hyper_opt_{hypers}"
                 for char in ['{', '}', ':', ',', "'", ' ', '.']:
                     plot_name = plot_name.replace(char, "")
-                scatter(y=y, y_hat=y_hats_mu, uncertainty=y_hats_sigma, outfile=plot_name+'.png')
+                # scatter(y=y, y_hat=y_hats_mu, uncertainty=y_hats_sigma, outfile=plot_name+'.png')
 
                 score = calc_rmse(y, y_hats_mu)
 
