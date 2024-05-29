@@ -8,7 +8,7 @@ Derek van Tilborg | 06-03-2023 | Eindhoven University of Technology
 import torch
 from torch import Tensor
 from typing import Union
-from nano.models import XGBoostEnsemble, BayesianNN
+from nano.models import XGBoostEnsemble, BayesianNN, RFEnsemble, GP
 from nano.utils import augment_data
 import numpy as np
 from math import ceil
@@ -71,6 +71,8 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, std: np.array, n_folds
                             sampling_freq: int = 500, **kwargs) -> (np.ndarray, np.ndarray, np.ndarray):
     assert len(x) == len(y), f"x and y should contain the same number of samples x:{len(x)}, y:{len(y)}"
 
+    if model == 'gp':
+        ensemble_size = 1
     # Define some variables
     y_hats = np.zeros((y.shape[0], ensemble_size if model != 'bnn' else sampling_freq))
     y_hats_mean, y_hats_uncertainty = np.zeros(y.shape), np.zeros(y.shape)
@@ -93,6 +95,22 @@ def k_fold_cross_validation(x: np.ndarray, y: np.ndarray, std: np.array, n_folds
             m.train(x_train, y_train)
             y_hat, y_hat_mean, y_hat_uncertainty = m.predict(x_test)
             y_hat = y_hat.T
+
+        elif model == 'rf':
+            m = RFEnsemble(ensemble_size=ensemble_size, **kwargs)
+
+            # Train and predict on the test split
+            m.train(x_train, y_train)
+            y_hat, y_hat_mean, y_hat_uncertainty = m.predict(x_test)
+            y_hat = y_hat.T
+
+        elif model == 'gp':
+            m = GP(**kwargs)
+            # m = GP(**hypers)
+            # Train and predict on the test split
+            m.train(x_train, y_train)
+            y_hat, y_hat_mean, y_hat_uncertainty = m.predict(x_test)
+            y_hat = y_hat.reshape((y_hat.shape[0], 1))
 
         elif model == 'bnn':
             m = BayesianNN(**kwargs)
